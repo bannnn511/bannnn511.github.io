@@ -4,4 +4,6 @@ title: About
 permalink: /about
 ---
 
-I'm a back-end software engineer living in Ho Chi Minh, Vietnam.
+Hi, I'm An.
+
+I'm a software engineer living in Ho Chi Minh, Vietnam.

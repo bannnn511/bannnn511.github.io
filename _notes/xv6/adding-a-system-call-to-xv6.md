@@ -1,5 +1,6 @@
 ---
 title: Adding a system call to xv6
+date: 2024-09-01
 ---
 
 ## What are we doing??
