@@ -18,19 +18,19 @@ We will explore the xv6 kernel scheduling algorithm as well as the context switc
 
 ## Scheduling
 
-In the previous blog about [[Adding a system call to XV6]], we know that user programs are executed in a **restricted** manner. We know how the kernel provides a mechanism called system call for user that wants to access privilege resources on the hardware. The abstraction of process also gives our programs an illusion that we alone are using the hardware computing resources by ourself. The truth is that most of us who studies computer science knows that, the kernel running our processes by running one process, stop it and start running another repeatedly. This is called **time-sharing**. Time-sharing allows limited hardware resources be shared among many processes, each process is given a small slice of processing time to execute their task.
+In the previous blog about [[Adding a system call to XV6]], we know that user programs are executed in a **restricted** manner. We know how the kernel provides a mechanism called system call for user that wants to access privilege resources on the hardware. The abstraction of process also gives our programs an illusion that we alone are using the hardware computing resources. The truth is most of us who studies computer science knows that, the kernel runs our processes by run one process, stop it and start running another repeatedly. This is called **time-sharing**. Time-sharing allows limited hardware resources to be shared among many processes, each process is given a small slice of processing time to execute their task.
 
 > Imagine this scenario, if we have only 1 CPU(1 core) on our machine, **if a user process is using the CPU which means that the kernel is not running**. How can the OS takes back control of the CPU from the user program?
 >
 > If you are using a programming language like Go that implements concurrency using user thread, how does the Go runtime take back control from other Go routines?
 
-In the context of limited direct execution, time-sharing allows the kernel to control user programs. By periodically forces user programs to give back the CPU to the controller, user programs can not uses resource forever. By giving the control back to the kernel, the kernel's scheduler can decide which processes to run. The scheduling algorithm is the kernel policy to decide which processes to run.
+In the context of **limited direct execution**, time-sharing allows the kernel to control how long user programs can run. By periodically forces user programs to give back the CPU to the controller, user programs can not uses resource forever. By giving the control back to the kernel, the kernel's scheduler can decide which processes to run. The scheduling algorithm is the kernel **policy** to decide which processes to run.
 
 ## Multiplexing processes onto hardware processor
 
 There are 2 cases when the kernel will switch from one process to another:
 
- 1. OS periodically forces a switch when a process is executing in user space to the kernel space. This is called a **timer-interrupt**. In the previous blog post about [[Adding a system call to XV6]], we knows that when a system call is invoked, the user program must issue an interrupt instruction to transition to the kernel, the timer-interrupt is handled by the same mechanism. We will explore this later on in the xv6 kernel code.
+ 1. OS periodically forces a switch when a process is executing in user space to the kernel space. This is called a **timer-interrupt**. In the previous blog post about [[Adding a system call to XV6]], we knows that when a system call is invoked, the user program must issue an interrupt instruction to transition to the kernel, **the timer-interrupt is handled by the same mechanism**. We will explore this later on in the xv6 kernel code.
  2. When processes have to wait for device or pipe I/O to complete, when parent process waits for a child process to exit or the `sleep`  system call.
 
 ## Context Switch
@@ -47,6 +47,8 @@ Context switching from one user process to another user process involves:
  4. return to process B's user space
 
 Now, let's dive into the code for context switch.
+
+---
 
 # The code
 
@@ -95,8 +97,6 @@ struct proc {
 };
 ```
 
-I will only mention some important fields that we are needed in this blog. If you want to learn more, check out the references at the end of the blog.
-
 - `pgdir` is our page table which I will make another blog post.
 - `kstack` is the process's kernel stack. In order for kernel to execute when process transition from user space to kernel space is that each process shares a part of their address space with the kernel. What this means is that the kernel `code` and `data` section exists in every process and is pointed to the same physical location in the memory. With this setup, when the process transition from user space to kernel space, kernel code can be executed.
 - `state` presents the state of our process. `RUNNABLE` is when our process can be run and it is waiting for the CPU to run. `RUNNING` is when it is being executed.
@@ -128,7 +128,7 @@ void trap(struct trapframe *tf)
 }
 ```
 
-At the first switch case, we can find the trap number for timer interrupts, it will update the ticks  count and wakeup any process that is waiting for the next ticks . It will only update the ticks count for the first CPU because **each CPU has its own timer and interrupt** and these timers may not be synchronized. `lapiceoi()` will acknowledge the local interrupt so that it can ready for next interrupts. The important code is further down in this function.
+At the first switch case, we can find the trap number for timer interrupts, it will update the ticks count and wakeup any process that is waiting for the next ticks . It will only update the ticks count for the first CPU because **each CPU has its own timer and interrupt** and these timers may not be synchronized. `lapiceoi()` will acknowledge the local interrupt so that it can ready for next interrupts. The important code is further down in this function.
 
 >I may cover `sleep` and `wakeup` in future blog post
 
@@ -146,7 +146,7 @@ void trap(struct trapframe *tf)
 }
 ```
 
-This code will check if our process is running and if the trap number is our timer interrupt. If it is, we will call `yield` to given up the CPU. Let's look at the code in `yield`:
+This code will check if our process is running and if the trap number is our timer interrupt. If it is, we will call `yield` to give up the CPU. Let's look at the code in `yield`:
 
 ```c
 // FILE: proc.c
@@ -287,7 +287,7 @@ scheduler(void)
 }
 ```
 
-The scheduler is per-CPU scheduler, which means each CPU has it owns scheduler but they all shared the same process list. The outer loop is an infinite loop so that it never returns. The inner loop is to find the next process to run. The xv6 scheduler is implemented using round-robin algorithm which is our inner loop. When we found a process that is `RUNNABLE`, we will context switch to that process so that it can be run.
+The scheduler is per-CPU scheduler, which means each CPU has it owns scheduler but they all share the same process list. The outer loop is an infinite loop so that it never returns. The inner loop is to find the next process to run. The xv6 scheduler is implemented using round-robin algorithm which is our inner loop. When we found a process that is `RUNNABLE`, we will context switch to that process so that it can be run.
 
 At this point, from someone who knows how to code perspective but does not know about the OS, they will think that after the `swtch`, the loop will continue to run. But as we know, we are now running at difference position until we call `yield` again which will continue to run the line after `swtch`.
 
