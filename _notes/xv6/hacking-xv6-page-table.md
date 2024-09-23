@@ -359,16 +359,17 @@ pid 3 null: trap 14 err 4 on cpu 0 eip 0x1011 addr 0x0--kill proc
 Now the kernel return trap 14 which is what we want for read or write to NULL pointer.
 
 ---
+
 ## Resources, references
 
-- https://wiki.osdev.org/Paging
+- [https://wiki.osdev.org/Paging](https://wiki.osdev.org/Paging)
 
-- https://wiki.osdev.org/Exceptions#Page_Fault
+- [https://wiki.osdev.org/Exceptions#Page_Fault](https://wiki.osdev.org/Exceptions#Page_Fault)
 
 - [https://pages.cs.wisc.edu/~remzi/OSTEP/](https://pages.cs.wisc.edu/~remzi/OSTEP/)
-    
+
 - [https://github.com/palladian1/xv6-annotated](https://github.com/palladian1/xv6-annotated)
-    
+
 - [https://github.com/mit-pdos/xv6-public](https://github.com/mit-pdos/xv6-public)
-    
+
 - [https://github.com/remzi-arpacidusseau/ostep-projects/tree/master/initial-xv6](https://github.com/remzi-arpacidusseau/ostep-projects/tree/master/initial-xv6)
