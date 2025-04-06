@@ -25,7 +25,7 @@ When a user program makes a system call, it executes a **special trap instructio
 
 ## The XV6 kernel code
 
-![kerel trap setup](https://substackcdn.com/image/fetch/w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F68f1d7a8-a551-4ce6-9704-92ffd47400fe_2667x1499.png)
+![kernel trap setup](https://substackcdn.com/image/fetch/w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F68f1d7a8-a551-4ce6-9704-92ffd47400fe_2667x1499.png)
 
 System calls are one of three cases when control must be transferred from a user program to the kernel, the others are exceptions and interrupts. Lots of processors handle these events by a single hardware mechanism, in this case, the source code of xv6 (there are so xv6-riscv) is built on x86 architecture which uses the `int` instruction to invoke an interrupt. **Use programs can invoke a system call by generating an interrupt using the** `int` **instruction**. An interrupt stops the loop of a processor and starts executing an **interrupt handler**. The hardware raises the privilege level and saves the user program’s registers in its kernel stack so that it can resume executing after returning to user programs.
 
