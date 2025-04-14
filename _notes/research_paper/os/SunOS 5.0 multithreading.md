@@ -1,8 +1,10 @@
-# Beyond Multiprocessing... Multithreading the SunOS Kernel
-
-_J. R. Eykholt, S. R. Kleiman, S. Barton, R. Faulkner, A. Shivalingiah, M. Smith, D. Stein, J. Voll, M. Weeks, D. Williams_ – SunSoft, Inc.
-
-### Summer '92 USENIX – June 8-June 12, 1992 – San Antonio, TX
+---
+title: "Beyond Multiprocessing... Multithreading the SunOS Kernel"
+category: research-paper
+date: 1992-06-08
+authors: J. R. Eykholt, S. R. Kleiman, S. Barton, R. Faulkner, A. Shivalingiah, M. Smith, D. Stein, J. Voll, M. Weeks, D. Williams
+summary: This paper describes the implementation of a multithreaded kernel in SunOS 5.0, including kernel architecture, scheduling, thread management, synchronization primitives, and interrupt handling as threads.
+---
 
 ## Motivation
 
