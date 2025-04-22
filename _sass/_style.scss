@@ -6,12 +6,15 @@ $color-box-background: mix($color-primary, white, 4%);
 $border-radius: 4px;
 
 @font-face {
-    font-family: "Input Sans";
-    src: url("../fonts/InputSans-Light.ttf") format("truetype");
+    // font-family: "Input Sans";
+    // src: url("../fonts/InputSans-Light.ttf") format("truetype");
+    font-family: "Geist";
+    src: url("../fonts/Geist-Regular.otf") format("opentype"),
 }
 
 $font-family:
-    Input Sans,
+    // Input Sans,
+    "Geist",
     -apple-system,
     BlinkMacSystemFont,
     Segoe UI,
