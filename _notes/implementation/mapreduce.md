@@ -8,7 +8,7 @@ date: 2025-05-10
 I wrote a simple MapReduce implementation in C. The code is designed to be run on a single machine, but it can be extended to work in a distributed environment.
 This implementation is based on the skeleton from [Prof. Remzi's project](https://github.com/remzi-arpacidusseau/ostep-projects/blob/master/concurrency-mapreduce/mapreduce.h).
 
-I also have some notes from the [MapReduce paper](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf) in [here](https://bannnn511.github.io/mapreduce). Reading the paper is recommended.
+I also have some notes from the [MapReduce paper](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf) in [[_notes/research_paper/data/MapReduce|MapReduce]]. Reading the paper is recommended.
 
 ## Overview
 ## Motivation
