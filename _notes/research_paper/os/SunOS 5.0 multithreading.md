@@ -1,156 +1,64 @@
----
-title: "Beyond Multiprocessing... Multithreading the SunOS Kernel"
-category: research-paper
-date: 1992-06-08
-authors: J. R. Eykholt, S. R. Kleiman, S. Barton, R. Faulkner, A. Shivalingiah, M. Smith, D. Stein, J. Voll, M. Weeks, D. Williams
-summary: This paper describes the implementation of a multithreaded kernel in SunOS 5.0, including kernel architecture, scheduling, thread management, synchronization primitives, and interrupt handling as threads.
----
+# Title
 
-## Motivation
+**Name: Beyond Multiprocessing ...
+Multithreading the SunOS Kernel**
 
-- Preemptable
-- Real-time scheduling
-- Multiprocessor
-- User-level threading
-- Highly concurrent
-- Responsive operation
+**Authors: J. R. Eykholt, S. R. Kleiman, S. Barton, R. Faulkner, A. Shivalingiah,
+M. Smith, D. Stein, J. Voll, M. Weeks, D. Williams– SunSoft, Inc.**
 
-## Kernel Architecture
+**Published in: Summer ’92 USENIX– June 8-June 12, 1992– San Antonio, TX **
 
-- Dispatch kernel thread onto CPU
-- Context switching between kernel threads are inexpensive because they are on the same address space
-- Kernel threads are fully preemptable, can be scheduled by any CPU
-- Use synchronization primitives to prevent priority inversion
-  - Lower-priority thread cannot block higher-priority thread
-- User kernel thread to provide asynchronous kernel activity (async writes,...)
-  - Increase potential concurrency activity (can be handled by other CPUs)
-- Interrupts are handled by kernel thread
-  - Interrupt threads will be blocked if they encounter a locked synchronization variable
-- Support of threads (light weight process)
-  - Bridge between user threads and kernel threads
-  - Kernel supports the execution of LWP by associating a kernel thread with each LWP
-  - LWPs have a kernel thread, not all kernel threads have a LWP
-  - LWP M:N kernel thread
-- A user-level library uses LWPs to implement user-level threads
+## Engineering Research Paper: Question–Answer Form
 
-## Data Structure
+- **What is your take-away message from this paper?**
 
-### Traditional
+  _Your answer here._
 
-- `user` and `proc` contained all kernel data for process
-  - `user` data is swappable
-  - `proc` data is not swappable
-- `processor` data held in global variables and data structure
-- Kernel stack of the process (swappable) was allocated with the `user` structure in user area
+- **What is the motivation for this work** (both people problem and technical problem), and its distillation into a research question? Why doesn’t the people problem have a trivial solution? What are the previous solutions and why are they inadequate?
 
-### Restructured Kernel
+- People problems: because SunOS 4 only supports single process, developers could not write multithreaded applications and utilize multi processors architecture effectively. Kernel threads are not preemptive cause high priority tasks to be blocked by low priority tasks which results in poor real-time performance.
 
-- Data:
-  - Data with each LWP, LWP's kernel thread
-  - Data with each process
-  - Data with each processor
-- `proc`: per-process data
-  - List of kernel threads
-  - Pointer to process address space
-  - User credentials
-  - List of signal handlers
-  - Vestigial `user` structure (no longer need to swap)
-- `lwp`: per-lwp data
-  - PCB
-  - Syscall args
-  - Resource usage
-  - Pointer to kernel threads, process structures
-  - **Kernel stack** of the thread is allocated with the LWP data structure in **swappable area**
-    - Kernel stack is swappable but kernel thread is not
-    - Kernel stack is used to save user-level thread states
-    - Kernel stack is specific to execution of a particular LWP -> need to be saved together
-- `kthread`: per-thread-data (**not swappable**)
-  - Registers
-  - Scheduling class
-  - Dispatch queue links
-  - Pointers to the **stack and the associated LWP, process and CPU structures**
-  - Threads are linked on a list of threads for the process + on a list of all existing threads in the system
-- `cpu`
-  - Pointers to the currently executing thread
-  - Idle thread
-  - Current dispatching and interrupt handling information
-- To speed up access to the thread, LWP, process and CPU, use `%g7` registers to point to the current thread structure
+- Technical problems: bounded dispatch and real-time thread requires absolute control over scheduling which requires threads to be preemptive. With preemptive scheduling, high priority tasks can preempt low priority tasks, allowing for better responsiveness and real-time performance. Races and deadlocks in multithread architectures are difficult to manage and can lead to unpredictable behavior. The cost of synchronization is also a concern, synchronization primitives are expensive operations.
 
-## Scheduling
+- Goal: SunOS 5 is fully preemptible, has real-time scheduling and support user-level multithreading.
 
-- Operates on thread instead of process
-- Classes: time-sharing, real-time (fixed priority)
-- Dispatcher chooses threads with greatest priority
-- Preemption is disabled on small portion of code
-  - SunOS 5 is fully preemptable which means kernel thread can be interrupted by higher priority kernel threads
-  - **BUT**: preemption is disabled to protect critical section to protect shared kernel data structure
-  - Further details can be found in [Khanna 1992]
+- **What is the proposed solution** (hypothesis, idea, design)? Why is it believed it will work? How does it represent an improvement? How is the solution achieved?
 
-## System Threads
+  - Idea: scheduling classes: system, time-sharing, real-time
+  - Solution: TODO
+  
+  - Idea: multiple threads must be able to run on different processors. Kernel threads are lightweight, fully preemptible can be scheduled by any of the scheduling classes
+  - Solution: TODO
 
-- Scheduled like any other threads, usually belong to the system scheduling class
-- Have no need for LWP structures
-- Thread structure and stack can be allocated together -> non swappable
-- Segment driver:
-  - Handle stack allocation
-  - Handle virtual memory allocations
-  - Protect against stack overflow
+  - Idea: Scheduler prevents priority inversion (high priority threads can not be blocked by lower priority threads)
+  - Solution: TODO
 
-## Mutex
+  - Idea: asynchronous activities can be handle by kernel threads which prevent trap codes, idle loops and provide them with independently scheduled threads (increase potential concurrency). Also give asynchronous activities priority which help with scheduling.
+  - Solution: TODO
 
-- Held for short interval
-- Mutexes are not recursive
-  - Owner cannot call again
-- Caller must also release lock
-- Mutex:
-  - Adaptive mutex (default policy)
-    - Spins while owner is running
-    - Poll owner status in the spin-loop
-    - Sleep when owner is not running (owner may be interrupted by other threads -> owner sleeps -> cannot proceed to release lock)
-  - Spin mutex
-    - Spin to check if lock has become available
-    - **Interrupt is disabled** to prevent deadlock
+  - Idea: Event interrupts are handle by kernel threads. Kernel synchronizes with interrupt via synchronization primitives.
+  - Solution: TODO
 
-## Interrupts
+  - Idea: support user threads using lightweight processes. User threads can be implemented using LWPs.
+  - Solution: TODO
 
-### Traditional
 
-- Interrupts level must be raised before lock, lower after lock is released
-  - Expensive operations
-  - Subsystem are interdependent, interrupt lines and priority can be shared with other modules
+- **What is the author’s evaluation of the solution?** What logic, argument, evidence, artifacts (e.g., a proof-of-concept system), or experiments are presented in support of the idea?
 
-### SunOS 5
+  _Your answer here._
 
-- Interrupts as asynchronous, high priority threads that will be dispatched
-- Enabled interrupt handlers to sleep if required
+- **What is your analysis of the identified problem, idea and evaluation?** Is this a good idea? What flaws do you perceive in the work? What are the most interesting or controversial ideas? For work that has practical implications, ask whether this will work, who would want it, what it will take to give it to them, and when might it become a reality?
 
-### Implementing Interrupts as Threads
+  _Your answer here._
 
-#### Previous SunOS Version
+- **What are the paper’s contributions** (author’s and your opinion)? Ideas, methods, software, experimental results, experimental techniques...?
 
-- Interrupted process is held captive until interrupts returns
-- Interrupts are handled on the kernel stack of the interrupted process
-- Kernel sync with interrupt handler by blocking out interrupts in while in critical sections
+  _Your answer here._
 
-#### SunOS 5
+- **What are future directions for this research** (author’s and yours, perhaps driven by shortcomings or other critiques)?
 
-- Preallocate interrupt threads
-- Kernel do minimal amount of works to switch to interrupt threads -> not fully kernel thread yet
-- The interrupted thread is pinned and cannot be processed by CPU
-- If interrupt thread is blocked -> save states -> become full-fledged thread -> can be schedule -> returns to pinned thread
+  _Your answer here._
 
-### Interrupt Thread Cost
+- **What questions are you left with?** What questions would you like to raise in an open discussion of the work (review interesting and controversial points, above)? What do you find difficult to understand? List as many as you can, at least three, not including questions that can be answered quickly by searching the internet.
 
-- 40 instructions
-- Convert into real thread only when there is contention
-- Preallocated for each active interrupt level (memory usage) -> 8KB
-
-## Summary
-
-- SunOS 5.0 is a multithreaded and symmetric multiprocessor version of the SVR4 kernel
-- Features:
-  - Fully preemptible, real-time kernel
-  - High degree of concurrency on symmetric multiprocessors
-  - Support for user threads
-  - Interrupts handled as independent threads
-  - Adaptive mutual-exclusion locks
+  _Your answer here._
