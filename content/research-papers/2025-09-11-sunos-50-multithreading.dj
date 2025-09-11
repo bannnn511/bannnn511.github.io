@@ -1,0 +1,66 @@
+# SunOS 5.0 multithreading
+
+# Title
+
+**Name: Beyond Multiprocessing ...
+Multithreading the SunOS Kernel**
+
+**Authors: J. R. Eykholt, S. R. Kleiman, S. Barton, R. Faulkner, A. Shivalingiah,
+M. Smith, D. Stein, J. Voll, M. Weeks, D. Williams– SunSoft, Inc.**
+
+**Published in: Summer ’92 USENIX– June 8-June 12, 1992– San Antonio, TX **
+
+## Engineering Research Paper: Question–Answer Form
+
+- **What is your take-away message from this paper?**
+
+  _Your answer here._
+
+- **What is the motivation for this work** (both people problem and technical problem), and its distillation into a research question? Why doesn’t the people problem have a trivial solution? What are the previous solutions and why are they inadequate?
+
+- People problems: because SunOS 4 only supports single process, developers could not write multithreaded applications and utilize multi processors architecture effectively. Kernel threads are not preemptive cause high priority tasks to be blocked by low priority tasks which results in poor real-time performance.
+
+- Technical problems: bounded dispatch and real-time thread requires absolute control over scheduling which requires threads to be preemptive. With preemptive scheduling, high priority tasks can preempt low priority tasks, allowing for better responsiveness and real-time performance. Races and deadlocks in multithread architectures are difficult to manage and can lead to unpredictable behavior. The cost of synchronization is also a concern, synchronization primitives are expensive operations.
+
+- Goal: SunOS 5 is fully preemptible, has real-time scheduling and support user-level multithreading.
+
+- **What is the proposed solution** (hypothesis, idea, design)? Why is it believed it will work? How does it represent an improvement? How is the solution achieved?
+
+  - Idea: scheduling classes: system, time-sharing, real-time
+  - Solution: TODO
+  
+  - Idea: multiple threads must be able to run on different processors. Kernel threads are lightweight, fully preemptible can be scheduled by any of the scheduling classes
+  - Solution: TODO
+
+  - Idea: Scheduler prevents priority inversion (high priority threads can not be blocked by lower priority threads)
+  - Solution: TODO
+
+  - Idea: asynchronous activities can be handle by kernel threads which prevent trap codes, idle loops and provide them with independently scheduled threads (increase potential concurrency). Also give asynchronous activities priority which help with scheduling.
+  - Solution: TODO
+
+  - Idea: Event interrupts are handle by kernel threads. Kernel synchronizes with interrupt via synchronization primitives.
+  - Solution: TODO
+
+  - Idea: support user threads using lightweight processes. User threads can be implemented using LWPs.
+  - Solution: TODO
+
+
+- **What is the author’s evaluation of the solution?** What logic, argument, evidence, artifacts (e.g., a proof-of-concept system), or experiments are presented in support of the idea?
+
+  _Your answer here._
+
+- **What is your analysis of the identified problem, idea and evaluation?** Is this a good idea? What flaws do you perceive in the work? What are the most interesting or controversial ideas? For work that has practical implications, ask whether this will work, who would want it, what it will take to give it to them, and when might it become a reality?
+
+  _Your answer here._
+
+- **What are the paper’s contributions** (author’s and your opinion)? Ideas, methods, software, experimental results, experimental techniques...?
+
+  _Your answer here._
+
+- **What are future directions for this research** (author’s and yours, perhaps driven by shortcomings or other critiques)?
+
+  _Your answer here._
+
+- **What questions are you left with?** What questions would you like to raise in an open discussion of the work (review interesting and controversial points, above)? What do you find difficult to understand? List as many as you can, at least three, not including questions that can be answered quickly by searching the internet.
+
+  _Your answer here._

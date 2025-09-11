@@ -1,15 +1,25 @@
-# Generated website directory
-_site/
+# Generated website directory (Deno build output)
+out/
 
-# Sass cache
-.sass-cache/
+# Migration script and cleanup files
+migrate.py
+cleanup.sh
 
-# Jekyll cache & metadata
-.jekyll-cache/
-.jekyll-metadata
-
-# Notes graph metadata
-_includes/notes_graph.json
+# Jekyll legacy files (backup only)
+# _site/
+# .sass-cache/
+# .jekyll-cache/
+# .jekyll-metadata
+# _includes/notes_graph.json
 
 # Obsidian config
 .obsidian/
+
+# macOS
+.DS_Store
+
+# Deno cache
+.deno/
+
+# Temporary files
+*.tmp

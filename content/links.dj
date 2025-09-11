@@ -1,0 +1,31 @@
+# Links
+
+A collection of useful resources for systems programming, operating systems, and computer science research.
+
+## Systems Programming
+
+: Two meanings of systems programming
+  <http://willcrichton.net/notes/systems-programming/>
+
+: Systems programmers can have nice things
+  <https://robert.ocallahan.org/2016/08/random-thoughts-on-rust-cratesio-and.html>
+
+## Operating Systems
+
+: The xv6 Operating System
+  <https://pdos.csail.mit.edu/6.828/2021/xv6.html>
+
+: Operating Systems: Three Easy Pieces
+  <https://pages.cs.wisc.edu/~remzi/OSTEP/>
+
+## Research Papers
+
+: Papers We Love
+  <https://paperswelove.org/>
+
+: The Morning Paper
+  <https://blog.acolyer.org/>
+
+## Blogs
+: Matklad
+ <https://matklad.github.io/>

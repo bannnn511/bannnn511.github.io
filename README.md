@@ -1,35 +1,72 @@
-[![Netlify Status](https://api.netlify.com/api/v1/badges/8cfa8785-8df8-4aad-ad35-8f1c790b8baf/deploy-status)](https://app.netlify.com/sites/digital-garden-jekyll-template/deploys)
+# AN HA's Blog
 
-# Digital garden Jekyll template
+A technical blog focused on systems programming, operating systems, and distributed systems.
 
-Use this template repository to get started with your own digital garden.
+## Structure
 
-**I wrote a tutorial explaining how to set it up: [Setting up your own digital garden with Jekyll](https://maximevaillancourt.com/blog/setting-up-your-own-digital-garden-with-jekyll)**
+This blog is built using the [matklad.github.io](https://github.com/matklad/matklad.github.io) template with Deno and djot markup.
 
-Preview the template here: https://digital-garden-jekyll-template.netlify.app/
+### Content Organization
 
-- Based on Jekyll, a static website generator
-- Supports Roam-style double bracket link syntax to other notes
-- Creates backlinks to other notes automatically
-- Features link previews on hover
-- Includes graph visualization of the notes and their links
-- Features a simple and responsive design
-- Supports Markdown or HTML notes
+- **Regular Posts** (`content/posts/`): Technical articles, tutorials, and general programming content
+- **Research Papers** (`content/research-papers/`): Summaries and analyses of academic papers
+- **About** (`content/about.dj`): Personal information and blog description
 
-<img width="1522" alt="Screen Shot 2020-05-19 at 23 05 46" src="https://user-images.githubusercontent.com/8457808/82400515-7d026d80-9a25-11ea-83f1-3b9cb8347e07.png">
+### Navigation
 
-## A note about GitHub Pages
-> [!NOTE]  
-> **Update (January 2023)**: it seems that GitHub Pages supports custom plugins now, thanks to GitHub Actions ([view relevant discussion](https://github.com/maximevaillancourt/digital-garden-jekyll-template/discussions/144)). 
+The blog includes two main sections:
+- **Home**: Latest posts from all categories
+- **Research Papers**: Dedicated section for research paper summaries
 
-GitHub Pages only partially supports this template: to power the interactive notes graph, this template uses a custom Jekyll plugin to generate the graph data in [`notes_graph.json`](https://github.com/maximevaillancourt/digital-garden-jekyll-template/blob/7ac331a4113bac77c993856562acc2bfbde9f2f7/_plugins/bidirectional_links_generator.rb#L102), and [GitHub Pages doesn't support custom Jekyll plugins](https://docs.github.com/en/pages/setting-up-a-github-pages-site-with-jekyll/about-github-pages-and-jekyll#plugins).
+## Development
 
-If you want to use the graph with GitHub Pages, you may try building your garden locally using Jekyll then pushing the result to GitHub Pages.
+### Prerequisites
 
-Alternatively, you may deploy your garden to Netlify and it'll work out of the box. [I wrote a guide explaining how to set this up](https://maximevaillancourt.com/blog/setting-up-your-own-digital-garden-with-jekyll).
+- [Deno](https://deno.land/) for the build system
 
-If you don't care about the graph, you can simply remove it from this layout, [as explained here](https://github.com/maximevaillancourt/digital-garden-jekyll-template/discussions/132#discussioncomment-3625772).
+### Commands
+
+```console
+$ deno task build
+$ deno task watch
+$ deno task touch my-new-post-slug
+```
+
+### Adding Content
+
+#### Regular Blog Posts
+
+Create files in `content/posts/` with the format `YYYY-MM-DD-slug.dj`:
+
+```djot
+# Your Post Title
+
+Your content here using djot markup...
+```
+
+#### Research Papers
+
+Create files in `content/research-papers/` with the same format. These will appear in the dedicated Research Papers section.
+
+### Djot Markup
+
+This blog uses [djot](https://djot.net/) markup language, which is similar to Markdown but with some differences:
+
+- Links: `https://example.com[link text]` instead of `[link text](https://example.com)`
+- Images: `/path/to/image.png[alt text]` instead of `![alt text](/path/to/image.png)`
+
+## Migration Notes
+
+This blog was migrated from Jekyll. The original content structure has been preserved:
+
+- Original `_notes/` content has been converted to djot format
+- Posts are organized by type (regular posts vs research papers)
+- Assets have been moved to `content/assets/`
+
+## Deployment
+
+The built site is in `out/www/` and can be deployed to any static hosting service.
 
 ## License
 
-Source code is available under the [MIT license](LICENSE.md).
+Code samples on this blog are dual licensed under MIT OR Apache-2.0.
