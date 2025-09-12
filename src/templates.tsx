@@ -65,6 +65,7 @@ function Base({ children, src, title, path, description, extra_css }: {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{title}</title>
         <meta name="description" content={description} />
+        <link rel="icon" href="/assets/squirtle.webp" type="image/webp" />
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="canonical" href={`${site_url}${path}`} />
@@ -264,7 +265,7 @@ function FeedEntry({ post }: { post: PostData }) {
       <updated>{yyyy_mm_dd(post.date)}T00:00:00+00:00</updated>
       <id>{`${site_url}${post.path.replace(".html", "")}`}</id>
       <author>
-        <name>Alex Kladov</name>
+        <name>An Ha</name>
       </author>
       <summary type="html">
         <Raw unsafe={`<![CDATA[${post.summary}]]>`} />
