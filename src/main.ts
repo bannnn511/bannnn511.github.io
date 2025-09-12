@@ -198,6 +198,7 @@ async function build(params: {
     "css/*",
     "assets/*",
     "assets/resilient-parsing/*",
+    "assets/unix/*",
   ];
   for (const path of paths) {
     await update_path(path);
