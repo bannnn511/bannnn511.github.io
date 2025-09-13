@@ -11,11 +11,11 @@ The kernel uses three data structures to represent an open file.
     - A pointer to a **file table entry**
 
 2. The kernel maintains a file table for all open files. Each file table entry contains
-    - The file status flags for the file (read, write, append, sync, and nonblocking)
+    - The file status flags for the file (read, write, append, sync, and non-blocking)
     - The current file offset
     - A pointer to the **v-node table entry** for the file
 
-3. Each open file (or device) has a v-node strucute that contains information about the type of file and points to functions that operate on the file (Linux has no v-node but a generic i-node).
+3. Each open file (or device) has a v-node structure that contains information about the type of file and points to functions that operate on the file (Linux has no v-node but a generic i-node).
 
 ![file descriptor table](/assets/unix/1.png)
 
@@ -39,7 +39,6 @@ Each process has it own current file offset in the file table entry. Which allow
 #include <sys/fcntl.h>
 #include "util.h"
 #include <unistd.h>
-
 
 int main(void) {
     int fd = open("./test", O_RDWR | O_CREAT);

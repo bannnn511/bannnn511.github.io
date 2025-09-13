@@ -1,16 +1,12 @@
-# SunOS 5.0 multithreading
-
-# Title
-
-**Name: Beyond Multiprocessing ...
-Multithreading the SunOS Kernel**
+# Beyond Multiprocessing ...
+Multithreading the SunOS Kernel
 
 **Authors: J. R. Eykholt, S. R. Kleiman, S. Barton, R. Faulkner, A. Shivalingiah,
 M. Smith, D. Stein, J. Voll, M. Weeks, D. Williams– SunSoft, Inc.**
 
 **Published in: Summer ’92 USENIX– June 8-June 12, 1992– San Antonio, TX **
 
-## Engineering Research Paper: Question–Answer Form
+## Engineering Research Paper:
 
 - **What is your take-away message from this paper?**
 
@@ -18,32 +14,69 @@ M. Smith, D. Stein, J. Voll, M. Weeks, D. Williams– SunSoft, Inc.**
 
 - **What is the motivation for this work** (both people problem and technical problem), and its distillation into a research question? Why doesn’t the people problem have a trivial solution? What are the previous solutions and why are they inadequate?
 
-- People problems: because SunOS 4 only supports single process, developers could not write multithreaded applications and utilize multi processors architecture effectively. Kernel threads are not preemptive cause high priority tasks to be blocked by low priority tasks which results in poor real-time performance.
+- People problems: SunOS 4 only supports single process, developers could not write multithreaded applications and utilize multi processors architecture effectively. 
+Kernel threads are not preemptive cause high priority tasks to be blocked by low priority tasks which results in poor real-time performance.
+(real-time in this context means that scheduler does not guarantee that process will be scheduled with a reasonable upper time range)
 
-- Technical problems: bounded dispatch and real-time thread requires absolute control over scheduling which requires threads to be preemptive. With preemptive scheduling, high priority tasks can preempt low priority tasks, allowing for better responsiveness and real-time performance. Races and deadlocks in multithread architectures are difficult to manage and can lead to unpredictable behavior. The cost of synchronization is also a concern, synchronization primitives are expensive operations.
+- Technical problems: bounded dispatch and real-time thread requires absolute control over scheduling which requires threads to be preemptive. 
+With preemptive scheduling, high priority tasks can preempt low priority tasks, allowing for better responsiveness and real-time performance. 
+Races and deadlocks in multithread architectures are difficult to manage and can lead to unpredictable behavior. 
+The cost of synchronization is also a concern, synchronization primitives are expensive operations.
 
 - Goal: SunOS 5 is fully preemptible, has real-time scheduling and support user-level multithreading.
 
 - **What is the proposed solution** (hypothesis, idea, design)? Why is it believed it will work? How does it represent an improvement? How is the solution achieved?
 
-  - Idea: scheduling classes: system, time-sharing, real-time
-  - Solution: TODO
+  **Idea 1: Multi-processor thread support**
+  - Multiple threads must be able to run on different processors
+  - Kernel threads are lightweight, fully preemptible, and can be scheduled by any scheduling class
   
-  - Idea: multiple threads must be able to run on different processors. Kernel threads are lightweight, fully preemptible can be scheduled by any of the scheduling classes
-  - Solution: TODO
+  **Solution:** Support user threads using Lightweight Processes (LWP)
+    - User threads can be implemented using LWPs
 
-  - Idea: Scheduler prevents priority inversion (high priority threads can not be blocked by lower priority threads)
-  - Solution: TODO
+    - **Traditional approach:** The `user` and `proc` structures contained all kernel data for process
+    
+    - **Proposed approach:** Uses multiple data structures to divide the process control block into swappable and non-swappable structures:
 
-  - Idea: asynchronous activities can be handle by kernel threads which prevent trap codes, idle loops and provide them with independently scheduled threads (increase potential concurrency). Also give asynchronous activities priority which help with scheduling.
-  - Solution: TODO
+      **Process Structure:**
+      - List of kernel threads (LWP) in the process
+      - Virtual address mapping
+      - Signal handlers
+      - User struct (much smaller)
 
-  - Idea: Event interrupts are handle by kernel threads. Kernel synchronizes with interrupt via synchronization primitives.
-  - Solution: TODO
+      **Lightweight Process (LWP):**
+      - Process Control Block (PCB): user-level registers, system arguments, user credentials, signal handling masks, resource usage information and profiling pointers
+      - Pointers to associated kernel thread and process structure
+      - Kernel thread (non-swappable)
 
-  - Idea: support user threads using lightweight processes. User threads can be implemented using LWPs.
-  - Solution: TODO
+      **Kernel Thread:**
+      - Kernel registers
+      - Scheduling class
+      - Dispatch queue links
+      - Pointers to stack of LWP, CPUs, process structure
 
+      **CPUs:**
+      - Current thread
+      - List of kernel threads
+      - Dispatch & interrupt handling information
+      - Dedicated registers to current running thread
+
+  **Idea 2: Priority inversion prevention**
+  - Scheduler prevents priority inversion (high priority threads cannot be blocked by lower priority threads)
+  
+  **Solution:** TODO
+
+  **Idea 3: Asynchronous activity handling**
+  - Asynchronous activities can be handled by kernel threads which prevent trap codes, idle loops and provide them with independently scheduled threads (increase potential concurrency)
+  - Also give asynchronous activities priority which helps with scheduling
+  
+  **Solution:** TODO
+
+  **Idea 4: Event interrupt handling**
+  - Event interrupts are handled by kernel threads
+  - Kernel synchronizes with interrupt via synchronization primitives
+  
+  **Solution:** TODO
 
 - **What is the author’s evaluation of the solution?** What logic, argument, evidence, artifacts (e.g., a proof-of-concept system), or experiments are presented in support of the idea?
 
