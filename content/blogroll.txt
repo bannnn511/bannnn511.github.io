@@ -1,0 +1,15 @@
+https://blog.xoria.org/atom.xml
+https://burntsushi.net/index.xml
+https://glfmn.io/atom.xml
+https://graydon2.dreamwidth.org/data/atom
+https://jonathan-frere.com/index.xml
+https://jyn.dev/atom.xml
+https://mmapped.blog/feed.xml
+https://neugierig.org/software/blog/atom.xml
+https://smallcultfollowing.com/babysteps/atom.xml
+https://transactional.blog/feed.xml
+https://typesanitizer.com/blog/rss.xml
+https://without.boats/index.xml
+https://www.scattered-thoughts.net/atom.xml
+https://yosefk.com/blog/feed
+https://matklad.github.io/feed.xml

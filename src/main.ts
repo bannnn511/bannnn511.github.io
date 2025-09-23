@@ -116,6 +116,7 @@ class Ctx {
     public render_ms: number = 0,
     public collect_ms: number = 0,
     public fmt_ms: number = 0,
+    public blogroll_ms: number = 0,
     public total_ms: number = 0,
   ) {}
 }
@@ -166,6 +167,17 @@ async function build(params: {
       `out/www${paper.path}`,
       html_ugly(Post({ post: paper })),
     );
+  }
+
+  // Build blogroll if enabled
+  if (params.blogroll) {
+    const t_blogroll = performance.now();
+    const blogroll_entries = await blogroll.blogroll();
+    await update_file(
+      "out/www/blogroll.html",
+      html_ugly(BlogRoll({ posts: blogroll_entries })),
+    );
+    ctx.blogroll_ms = performance.now() - t_blogroll;
   }
 
   const pages = ["about", "resume", "links", "style"];

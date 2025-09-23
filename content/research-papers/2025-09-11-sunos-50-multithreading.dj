@@ -4,7 +4,7 @@ Multithreading the SunOS Kernel
 **Authors: J. R. Eykholt, S. R. Kleiman, S. Barton, R. Faulkner, A. Shivalingiah,
 M. Smith, D. Stein, J. Voll, M. Weeks, D. Williams– SunSoft, Inc.**
 
-**Published in: Summer ’92 USENIX– June 8-June 12, 1992– San Antonio, TX **
+**Published in: Summer ’92 USENIX– June 8-June 12, 1992– San Antonio, TX**
 
 ## Engineering Research Paper:
 
@@ -16,16 +16,16 @@ M. Smith, D. Stein, J. Voll, M. Weeks, D. Williams– SunSoft, Inc.**
 
 - **What is the motivation for this work** (both people problem and technical problem), and its distillation into a research question? Why doesn’t the people problem have a trivial solution? What are the previous solutions and why are they inadequate?
 
-- People problems: SunOS 4 only supports single process, developers could not write multithreaded applications and utilize multi processors architecture effectively. 
+- **People problems:** SunOS 4 only supports single process, developers could not write multithreaded applications and utilize multi processors architecture effectively. 
 Kernel threads are not preemptive cause high priority tasks to be blocked by low priority tasks which results in poor real-time performance.
 (real-time in this context means that scheduler does not guarantee that process will be scheduled with a reasonable upper time range)
 
-- Technical problems: bounded dispatch and real-time thread requires absolute control over scheduling which requires threads to be preemptive. 
+- **Technical problems:** bounded dispatch and real-time thread requires absolute control over scheduling which requires threads to be preemptive. 
 With preemptive scheduling, high priority tasks can preempt low priority tasks, allowing for better responsiveness and real-time performance. 
 Races and deadlocks in multithread architectures are difficult to manage and can lead to unpredictable behavior. 
 The cost of synchronization is also a concern, synchronization primitives are expensive operations.
 
-- Goal: SunOS 5 is fully preemptible, has real-time scheduling and support user-level multithreading.
+- **Goal:** SunOS 5 is fully preemptible, has real-time scheduling and support user-level multithreading.
 
 - **What is the proposed solution** (hypothesis, idea, design)? Why is it believed it will work? How does it represent an improvement? How is the solution achieved?
 

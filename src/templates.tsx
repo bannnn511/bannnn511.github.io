@@ -85,6 +85,7 @@ function Base({ children, src, title, path, description, extra_css }: {
             <a class="title" href="/">AN HA</a>
             <a href="/about.html">About</a>
             <a href="/research-papers.html">Research Papers</a>
+            <a href="/blogroll.html">Blogroll</a>
             <a href="/links.html">Links</a>
           </nav>
         </header>

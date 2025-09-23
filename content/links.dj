@@ -1,35 +1,36 @@
 # Links
 
-A collection of useful resources for systems programming, operating systems, and computer science research.
+##
 
 ## Systems Programming
 
-: Two meanings of systems programming
-  <http://willcrichton.net/notes/systems-programming/>
+: [Two meanings of systems programming](http://willcrichton.net/notes/systems-programming/)
 
-: Systems programmers can have nice things
-  <https://robert.ocallahan.org/2016/08/random-thoughts-on-rust-cratesio-and.html>
+: [Systems programmers can have nice things](https://robert.ocallahan.org/2016/08/random-thoughts-on-rust-cratesio-and.html)
 
 ## Operating Systems
 
-: The xv6 Operating System
-  <https://pdos.csail.mit.edu/6.828/2021/xv6.html>
+: [The xv6 Operating System](https://pdos.csail.mit.edu/6.828/2021/xv6.html)
 
-: Operating Systems: Three Easy Pieces
-  <https://pages.cs.wisc.edu/~remzi/OSTEP/>
+: [Operating Systems: Three Easy Pieces](https://pages.cs.wisc.edu/~remzi/OSTEP/)
+
+: [Linux Kernel](https://www.cse.iitd.ac.in/~srsarangi/osbook/index.html)
 
 ## Research Papers
 
-: Papers We Love
-  <https://paperswelove.org/>
+: [Papers We Love](https://paperswelove.org/)
 
-: The Morning Paper
-  <https://blog.acolyer.org/>
+: [The Morning Paper](https://blog.acolyer.org/)
 
 ## Blogs
-: Matklad
- <https://matklad.github.io/>
-: McYoung
- <https://mcyoung.xyz/>
-: Code Review
- <https://www.janestreet.com/tech-talks/janestreet-code-review/>
+: [Matklad](https://matklad.github.io/)
+: [McYoung](https://mcyoung.xyz/)
+: [QUIC for the kernel](https://lwn.net/Articles/1029851/)
+: [How Jane Street code review](https://www.janestreet.com/tech-talks/janestreet-code-review/)
+: [io_uring](https://unixism.net/loti/index.html)
+
+## Books
+: [CMU Algo](https://www.cs.cmu.edu/~15850/notes/cmu850-f20.pdf)
+
+## Course
+: [Language transfer](https://www.languagetransfer.org/courses)
