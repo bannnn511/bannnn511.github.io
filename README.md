@@ -30,6 +30,7 @@ The blog includes two main sections:
 $ deno task build
 $ deno task watch
 $ deno task touch my-new-post-slug
+$ python3 -m http.server 3001 --directory out/www
 ```
 
 ### Adding Content
