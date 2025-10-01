@@ -16,13 +16,13 @@ M. Smith, D. Stein, J. Voll, M. Weeks, D. Williams– SunSoft, Inc.**
 
 - **What is the motivation for this work** (both people problem and technical problem), and its distillation into a research question? Why doesn’t the people problem have a trivial solution? What are the previous solutions and why are they inadequate?
 
-- **People problems:** SunOS 4 only supports single process, developers could not write multithreaded applications and utilize multi processors architecture effectively. 
+- **People problems:** SunOS 4 only supports single process, developers could not write multithreaded applications and utilize multi processors architecture effectively.
 Kernel threads are not preemptive cause high priority tasks to be blocked by low priority tasks which results in poor real-time performance.
 (real-time in this context means that scheduler does not guarantee that process will be scheduled with a reasonable upper time range)
 
-- **Technical problems:** bounded dispatch and real-time thread requires absolute control over scheduling which requires threads to be preemptive. 
-With preemptive scheduling, high priority tasks can preempt low priority tasks, allowing for better responsiveness and real-time performance. 
-Races and deadlocks in multithread architectures are difficult to manage and can lead to unpredictable behavior. 
+- **Technical problems:** bounded dispatch and real-time thread requires absolute control over scheduling which requires threads to be preemptive.
+With preemptive scheduling, high priority tasks can preempt low priority tasks, allowing for better responsiveness and real-time performance.
+Races and deadlocks in multithread architectures are difficult to manage and can lead to unpredictable behavior.
 The cost of synchronization is also a concern, synchronization primitives are expensive operations.
 
 - **Goal:** SunOS 5 is fully preemptible, has real-time scheduling and support user-level multithreading.
@@ -35,12 +35,12 @@ The cost of synchronization is also a concern, synchronization primitives are ex
 
   - Multiple threads must be able to run on different processors
   - Kernel threads are lightweight, fully preemptible, and can be scheduled by any scheduling class
-  
+
   **Solution:** Support user threads using Lightweight Processes (LWP)
 
     - **Traditional approach:** The `user` and `proc` structures contained all kernel data for process
 
-    - **Proposed approach:** Uses multiple data structures to divide the process control block into swappable and non-swappable structures. Dividing the process control block into multiple data structures helps with the performance of context switch. Hard state (non-swappable) are needed in every process so that the kernel have enough information for making scheduling decisions. While light state (swappable) is only need by the user program when it is running. 
+    - **Proposed approach:** Uses multiple data structures to divide the process control block into swappable and non-swappable structures. Dividing the process control block into multiple data structures helps with the performance of context switch. Hard state (non-swappable) are needed in every process so that the kernel have enough information for making scheduling decisions. While light state (swappable) is only need by the user program when it is running. `proc` contains `user` data to form a complete process control block. Process can be run one or many threads so `proc` contains a pointer to list of kernel threads. Each kernel thread contains a pointer to a lwp that is needed when lwp is swapped out.
       - `user` structure: contains light state, is swappable
       - `proc` structure: contains hard state, is non-swappable
       - `lwp` structure: contains light weight process information, is swappable
@@ -54,10 +54,10 @@ The cost of synchronization is also a concern, synchronization primitives are ex
 
     - Scheduling class converts relative priority into global priority
     - The dispatcher choses the task with the highest global priority, if there are tasks with the same priority, round-robin will be used
-  
+
   **Idea 3: Event interrupt handling**
 
-    **context**: signal/interrupt handlers on the same address space of kernel threads, which may cause deadlock in handlers if kernel thread has not release the lock. 
+    **context**: signal/interrupt handlers on the same address space of kernel threads, which may cause deadlock in handlers if kernel thread has not release the lock.
     **traditional approach**: the thread holding the lock must have hold interrupt priority high enough so that interrupt handlers cannot interrupt the thread that is currently holding the lock
 
   **Solution:**
@@ -67,8 +67,12 @@ The cost of synchronization is also a concern, synchronization primitives are ex
 
 
   **Idea 4: Adaptive mutex**
+    **context**: Traditional spinlocks waste CPU cycles when threads spin waiting for locks that may be held for a long time.
 
-    **traditional approach**: 
+    **Solution:** Adaptive mutex that chooses between spinning and blocking based on the state of the lock-holding thread
+    - If the lock-holding thread is currently running on another processor, the waiting thread spins (since the lock will likely be released soon)
+    - If the lock-holding thread is not running (blocked or preempted), the waiting thread sleeps instead of spinning to avoid wasting CPU cycles 
+    - This adaptive behavior reduces unnecessary CPU consumption while maintaining low latency for short critical sections
 
 - **What is the author’s evaluation of the solution?** What logic, argument, evidence, artifacts (e.g., a proof-of-concept system), or experiments are presented in support of the idea?
 
