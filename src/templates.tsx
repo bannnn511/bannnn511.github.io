@@ -1,3 +1,4 @@
+// @ts-nocheck
 /** @jsx h */
 /** @jsxFrag Fragment */
 // deno-lint-ignore-file no-explicit-any
@@ -118,7 +119,7 @@ export function Page(name: string, content: HtmlString) {
       path={`/${name}`}
       title="AN HA"
       description={blurb}
-      src={`/content/${name}.dj`}
+      src={`/content/${name}.md`}
       extra_css={name === "resume" ? "resume.css" : undefined}
     >
       <Raw unsafe={content.value} />

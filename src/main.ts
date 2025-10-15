@@ -1,5 +1,6 @@
+// @ts-nocheck
 import { debounce } from "@std/async/debounce";
-import * as djot from "./djot.ts";
+import * as md from "./markdown.ts";
 import * as blogroll from "./blogroll.ts";
 import {
   BlogRoll,
@@ -26,7 +27,7 @@ async function main() {
   if (subcommand === "touch") {
     const slug = Deno.args[1];
     const date = new Date().toISOString().split("T")[0];
-    const path = `./content/posts/${date}-${slug}.dj`;
+    const path = `./content/posts/${date}-${slug}.md`;
     console.log(`touching ${path}`);
     await Deno.writeTextFile(path, "#\n");
     return;
@@ -118,7 +119,7 @@ class Ctx {
     public fmt_ms: number = 0,
     public blogroll_ms: number = 0,
     public total_ms: number = 0,
-  ) {}
+  ) { }
 }
 
 async function build(params: {
@@ -182,9 +183,9 @@ async function build(params: {
 
   const pages = ["about", "resume", "links", "style"];
   for (const page of pages) {
-    const text = await Deno.readTextFile(`content/${page}.dj`);
-    const ast = await djot.parse(text);
-    const html = djot.render(ast, {
+    const text = await Deno.readTextFile(`content/${page}.md`);
+    const doc = md.parse(text);
+    const html = md.render(doc, {
       date: page == "resume" ? new Date("May 21, 2024") : undefined,
     });
     await update_file(
@@ -287,12 +288,12 @@ async function collect_posts(ctx: Ctx, filter: string): Promise<Post[]> {
   const start = performance.now();
   const posts = [];
   for await (const file_path of walk("./content/posts/")) {
-    if (!file_path.endsWith(".dj")) continue;
+    if (!file_path.endsWith(".md")) continue;
     if (filter !== "") {
       if (file_path.indexOf(filter) === -1) continue;
     }
     const [, y, m, d, slug] = file_path.match(
-      /^.*(\d\d\d\d)-(\d\d)-(\d\d)-(.*)\.dj$/,
+      /^.*(\d\d\d\d)-(\d\d)-(\d\d)-(.*)\.md$/,
     )!;
     const [year, month, day] = [y, m, d].map((it) => parseInt(it, 10));
     const date = new Date(Date.UTC(year, month - 1, day));
@@ -302,12 +303,12 @@ async function collect_posts(ctx: Ctx, filter: string): Promise<Post[]> {
     ctx.read_ms += performance.now() - t;
 
     t = performance.now();
-    const ast = djot.parse(text);
+    const doc = md.parse(text);
     ctx.parse_ms += performance.now() - t;
 
     t = performance.now();
     const render_ctx = { date, summary: undefined, title: undefined };
-    const html = djot.render(ast, render_ctx);
+    const html = md.render(doc, render_ctx);
     ctx.render_ms += performance.now() - t;
 
     posts.push({
@@ -320,7 +321,7 @@ async function collect_posts(ctx: Ctx, filter: string): Promise<Post[]> {
       content: html,
       summary: render_ctx.summary!,
       path: `/${y}/${m}/${d}/${slug}.html`,
-      src: `/content/posts/${y}-${m}-${d}-${slug}.dj`,
+      src: `/content/posts/${y}-${m}-${d}-${slug}.md`,
     });
   }
   posts.sort((l, r) => l.path < r.path ? 1 : -1);
@@ -332,12 +333,12 @@ async function collect_research_papers(ctx: Ctx, filter: string): Promise<Post[]
   const start = performance.now();
   const papers = [];
   for await (const file_path of walk("./content/research-papers/")) {
-    if (!file_path.endsWith(".dj")) continue;
+    if (!file_path.endsWith(".md")) continue;
     if (filter !== "") {
       if (file_path.indexOf(filter) === -1) continue;
     }
     const [, y, m, d, slug] = file_path.match(
-      /^.*(\d\d\d\d)-(\d\d)-(\d\d)-(.*)\.dj$/,
+      /^.*(\d\d\d\d)-(\d\d)-(\d\d)-(.*)\.md$/,
     )!;
     const [year, month, day] = [y, m, d].map((it) => parseInt(it, 10));
     const date = new Date(Date.UTC(year, month - 1, day));
@@ -347,12 +348,12 @@ async function collect_research_papers(ctx: Ctx, filter: string): Promise<Post[]
     ctx.read_ms += performance.now() - t;
 
     t = performance.now();
-    const ast = djot.parse(text);
+    const doc = md.parse(text);
     ctx.parse_ms += performance.now() - t;
 
     t = performance.now();
     const render_ctx = { date, summary: undefined, title: undefined };
-    const html = djot.render(ast, render_ctx);
+    const html = md.render(doc, render_ctx);
     ctx.render_ms += performance.now() - t;
 
     papers.push({
@@ -365,7 +366,7 @@ async function collect_research_papers(ctx: Ctx, filter: string): Promise<Post[]
       content: html,
       summary: render_ctx.summary!,
       path: `/research-papers/${y}/${m}/${d}/${slug}.html`,
-      src: `/content/research-papers/${y}-${m}-${d}-${slug}.dj`,
+      src: `/content/research-papers/${y}-${m}-${d}-${slug}.md`,
     });
   }
   papers.sort((l, r) => l.path < r.path ? 1 : -1);

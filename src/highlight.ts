@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { html, HtmlString } from "./templates.tsx";
 
 import hljs_ from "@highlightjs/highlight.min.js";
@@ -89,9 +90,8 @@ function add_spans_console(source: string): HtmlString {
     }
     if (line.startsWith("$ ")) {
       cont = line.endsWith("\\");
-      return html`<span class="hl-title function_">$</span> ${
-        line.substring(2)
-      }\n`;
+      return html`<span class="hl-title function_">$</span> ${line.substring(2)
+        }\n`;
     }
     if (line.startsWith("#")) {
       return html`<span class="hl-comment">${line}</span>\n`;

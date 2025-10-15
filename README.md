@@ -4,13 +4,13 @@ A technical blog focused on systems programming, operating systems, and distribu
 
 ## Structure
 
-This blog is built using the [matklad.github.io](https://github.com/matklad/matklad.github.io) template with Deno and djot markup.
+This blog is built using the [matklad.github.io](https://github.com/matklad/matklad.github.io) template with Deno and Markdown (GFM).
 
 ### Content Organization
 
 - **Regular Posts** (`content/posts/`): Technical articles, tutorials, and general programming content
 - **Research Papers** (`content/research-papers/`): Summaries and analyses of academic papers
-- **About** (`content/about.dj`): Personal information and blog description
+- **About** (`content/about.md`): Personal information and blog description
 
 ### Navigation
 
@@ -23,6 +23,7 @@ The blog includes two main sections:
 ### Prerequisites
 
 - [Deno](https://deno.land/) for the build system
+- [Pandoc](https://pandoc.org/) to render Markdown to HTML (must be installed and on PATH)
 
 ### Commands
 
@@ -37,30 +38,30 @@ $ python3 -m http.server 3001 --directory out/www
 
 #### Regular Blog Posts
 
-Create files in `content/posts/` with the format `YYYY-MM-DD-slug.dj`:
+Create files in `content/posts/` with the format `YYYY-MM-DD-slug.md`:
 
-```djot
+```markdown
 # Your Post Title
 
-Your content here using djot markup...
+Your content here using Markdown...
 ```
 
 #### Research Papers
 
 Create files in `content/research-papers/` with the same format. These will appear in the dedicated Research Papers section.
 
-### Djot Markup
+### Markdown
 
-This blog uses [djot](https://djot.net/) markup language, which is similar to Markdown but with some differences:
+This blog uses GitHub-Flavored Markdown (GFM).
 
-- Links: `https://example.com[link text]` instead of `[link text](https://example.com)`
-- Images: `/path/to/image.png[alt text]` instead of `![alt text](/path/to/image.png)`
+- Links: `[link text](https://example.com)`
+- Images: `![alt text](/path/to/image.png)`
 
 ## Migration Notes
 
 This blog was migrated from Jekyll. The original content structure has been preserved:
 
-- Original `_notes/` content has been converted to djot format
+- Original `_notes/` content has been converted to Markdown format
 - Posts are organized by type (regular posts vs research papers)
 - Assets have been moved to `content/assets/`
 
