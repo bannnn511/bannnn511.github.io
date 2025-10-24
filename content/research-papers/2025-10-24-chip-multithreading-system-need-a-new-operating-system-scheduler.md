@@ -1,4 +1,4 @@
-# Chip Multithreading System Need a New Operating System Scheduler
+****# Chip Multithreading System Need a New Operating System Scheduler
 
 **Authors:** Alexandra Fedorova, Christopher Small, Daniel Nussbaum, and Margo Seltzer (Harvard University, Sun Microsystems)
 
@@ -15,40 +15,26 @@ At the time the paper was written, schedulers did not take advantage of multithr
 ---
 
 ### 2. What is the motivation for this work?
-
 - What is the **people problem** and the **technical problem**?
-
   - Modern server applications (web services, online transaction systems) had poor utilization for CPU pipeline.
-
 - How is it distilled into a **research question**?
-
   - CMP (chip multiprocessing) and hardware multithreading (MT) were designed to improve processor utilization for OLTP workloads, but the scheduler policy did not take advantage of new CPU architecture.
-
 - Why doesn't the people problem have a **trivial solution**?
-
   - OLTP workload requires hundreds of threads which leads to 10^27 combinations to evaluate, hence the need for different designs
   - Modeling resource contention is a hard problem; good prediction is difficult to achieve
-
 - What are the **previous solutions**, and why are they **inadequate**?
-
   - Previous solutions ran on MT systems which yielded 17% improvement but were not designed for CMP.
 
 ---
 
 ### 3. What is the proposed solution (hypothesis, idea, design)?
-
 - Why is it believed this solution will work?
-
   - CPI (cycles-per-instruction) is used as a heuristic to measure workload
   - From the experiments it is observed that instruction mix between long-latency instruction and short-latency instructions yield the best CPU ultilization because it can interleaves execution from threads
-
 - How does it represent an **improvement**?
-
   - specialized scheduler for CMT systems has the potential for a much greater gain—it can improve application performance by as much as a **factor of two** over a naïve scheduler.
   - A naïve scheduler can severely hurt performance, potentially making a multithreaded processor perform worse than a single-threaded one. By preventing this poor performance, the new design delivers significant throughput improvements
-
 - How is the solution **achieved**?
-
   - the paper was able to proved that the current design of scheduler is not good enough and provide several keys factors for future work to consider for new scheduler design
   - considerations for scheduler designs:
     - resource contention
@@ -58,60 +44,65 @@ At the time the paper was written, schedulers did not take advantage of multithr
 ---
 
 ### 4. What is the author's evaluation of the solution?
-
-- What **logic, argument, evidence, artifacts**, or **experiments** are presented in support of the idea?
+- **Logic**:
+	- focus on processor pipeline because this is the source of contention
+	- processor pipeline depends on the latencies of the instructions. Instructions with long delay latencies(memory loads) will leave functional unit unused
+	- mix instructions of long and short delay instructions can keep the pipeline busy at all time
+- **Experiments**:
+	- Scenario: compare performance between conventional single-threaded core and on a traditional multiprocessor
+	- CMT system simulator toolkit based on multithreading proposed by Laudon et Al
+	- RISC pipeline with one set of functional unit. CPU has 4 hardware contexts per CPU core. Each core has a single shared TLC and L1 Data and instruction caches. L2 cache is shared by all CPU cores on the chip
+	- Alternatives: SMT(simultaneous multithreaded) systems where each core has multiple set of function units on each CPU core
+	- Workloads:
+		1. CPU bound workload with 4 threads that execute only ALU instructions
+		2. Memory bound workload with delay latency of 4 cycles
+	- Configurations:
+		1. A: singled-threaded processor
+		2. B: multithreaded processor with four hardware contexts(but only 1 functional unit)
+		3. C: 4-way multiprocessor
+- **Results**
+	- CPU-bound workload: 
+		- A ~~ B
+		- C = 4x A or B
+	- Memory-bound workload:
+		- B ~~ C
+		- B and C = 4x A
 
 ---
 
 ### 5. What is your analysis of the identified problem, idea, and evaluation?
 
-- Is this a **good idea**?
-
-- What **flaws** do you perceive in the work?
-
-- What are the most **interesting or controversial ideas**?
-
-- For practical work:
-
-  - Will this **actually work**?
-
-  - Who would **want it**?
-
-  - What would it **take to deliver** it?
-
-  - When might it **become a reality**?
+- Today schedulers have been improved to take advantage of CMP and MT architectures:
+	- Linux has improved its CFS scheduler to be SMT aware but still lacking
+	- Window 10, 11 and Mac OS has topology aware
 
 ---
 
 ### 6. What are the paper's contributions?
-
 - **Author's view:**
-
-- **Your view:**
-
-> _(Ideas, methods, software, experimental results, techniques, etc.)_
+	- Addressing performance loss
+	- Demonstration current scalability failures
+	- Metrics suggestions for future experiments
+	- Able to prove significant performance gains
+	- Heuristics strategy for scheduler design
 
 ---
 
 ### 7. What are future directions for this research?
-
 - **Author's suggestions:**
-
-- **Your suggestions:**
-
-> _(Driven by shortcomings, critiques, or opportunities.)_
+	- Techniques for inferring single-threaded CPI, given CMT CPI
+	- Determining the effects of cache contention on the throughput of co-scheduled threads. 
+	- Investigating other workload characteristics, e.g., static instruction mix, to improve scheduling decisions. 
+	- Studying the nature and dynamics of CPIs exhibited by real workloads to understand whether this is a viable metric to be used for scheduling real applications
+	- Investigating ways to integrate these ideas with other scheduling policies
+	- **Testing our scheduling ideas on real workloads.**
 
 ---
 
 ### 8. What questions are you left with?
-
-> List at least **three questions** that remain after reading. Avoid simple factual questions that can be answered via a quick search.
-
-- Q1:
-
-- Q2:
-
-- Q3:
+- Q1: How do current schedulers take advantage of new hardware?
+- Q2: How does Window use **processor group** with **core topology info**
+- Q3: How does Apple Silicon with ARM architectures not supporting SMT but still very performant?
 
 ---
 

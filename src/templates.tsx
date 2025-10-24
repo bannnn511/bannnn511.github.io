@@ -213,9 +213,6 @@ export function FlashcardList({ flashcard_sets }: { flashcard_sets: FlashcardSet
 }
 
 export function FlashcardPage({ flashcard_set }: { flashcard_set: FlashcardSetData }) {
-  // Shuffle the cards
-  const shuffledCards = [...flashcard_set.cards].sort(() => Math.random() - 0.5);
-  
   return (
     <Base
       src={flashcard_set.src}
@@ -228,12 +225,12 @@ export function FlashcardPage({ flashcard_set }: { flashcard_set: FlashcardSetDa
         <h1>{flashcard_set.title}</h1>
         <div class="flashcard-controls">
           <button type="button" id="prev-card">← Previous</button>
-          <span id="card-counter">1 / {shuffledCards.length}</span>
+          <span id="card-counter">1 / {flashcard_set.cards.length}</span>
           <button type="button" id="next-card">Next →</button>
         </div>
         <div class="flashcard-wrapper">
-          {shuffledCards.map((card, index) => (
-            <div class={`flashcard ${index === 0 ? 'active' : ''}`} data-index={index}>
+          {flashcard_set.cards.map((card, index) => (
+            <div class="flashcard" data-index={index}>
               <div class="flashcard-inner">
                 <div class="flashcard-front">
                   <div class="flashcard-content">
