@@ -83,11 +83,11 @@ function Base({ children, src, title, path, description, extra_css }: {
       <body>
         <header>
           <nav>
-            <a class="title" href="/">AN HA</a>
-            <a href="/about.html">About</a>
-            <a href="/research-papers.html">Research Papers</a>
-            <a href="/blogroll.html">Blogroll</a>
-            <a href="/links.html">Links</a>
+          <a class="title" href="/">AN HA</a>
+          <a href="/about.html">About</a>
+          <a href="/research-papers.html">Research Papers</a>
+          <a href="/blogroll.html">Blogroll</a>
+          <a href="/links.html">Links</a>
           </nav>
         </header>
 
@@ -121,10 +121,10 @@ export function Page(name: string, content: HtmlString) {
       description={blurb}
       src={`/content/${name}.md`}
       extra_css={name === "resume" ? "resume.css" : undefined}
-    >
+  >
       <Raw unsafe={content.value} />
-    </Base>
-  );
+  </Base>
+);
 }
 
 export function PostList({ posts }: { posts: PostData[] }) {
@@ -138,11 +138,11 @@ export function PostList({ posts }: { posts: PostData[] }) {
   ));
 
   return (
-    <Base path="" title="AN HA" description={blurb} src="/src/templates.tsx">
-      <ul class="post-list">
-        {list_items}
-      </ul>
-    </Base>
+  <Base path="" title="AN HA" description={blurb} src="/src/templates.tsx">
+  <ul class="post-list">
+  {list_items}
+  </ul>
+  </Base>
   );
 }
 
@@ -178,11 +178,11 @@ export function BlogRoll({ posts }: { posts: FeedEntryData[] }) {
   ));
 
   return (
-    <Base path="" title="AN HA" description={blurb} src="/src/templates.tsx">
-      <ul class="post-list">
-        {list_items}
-      </ul>
-    </Base>
+  <Base path="" title="AN HA" description={blurb} src="/src/templates.tsx">
+  <ul class="post-list">
+  {list_items}
+  </ul>
+  </Base>
   );
 }
 

@@ -15,6 +15,7 @@ This blog is built using the [matklad.github.io](https://github.com/matklad/matk
 ### Navigation
 
 The blog includes two main sections:
+
 - **Home**: Latest posts from all categories
 - **Research Papers**: Dedicated section for research paper summaries
 
@@ -31,7 +32,7 @@ The blog includes two main sections:
 $ deno task build
 $ deno task watch
 $ deno task touch my-new-post-slug
-$ python3 -m http.server 3001 --directory out/www
+$ 
 ```
 
 ### Adding Content

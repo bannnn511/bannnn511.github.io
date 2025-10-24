@@ -292,9 +292,9 @@ async function collect_posts(ctx: Ctx, filter: string): Promise<Post[]> {
     if (filter !== "") {
       if (file_path.indexOf(filter) === -1) continue;
     }
-    const [, y, m, d, slug] = file_path.match(
-      /^.*(\d\d\d\d)-(\d\d)-(\d\d)-(.*)\.md$/,
-    )!;
+    const match = file_path.match(/^.*(\d\d\d\d)-(\d\d)-(\d\d)-(.*)\.md$/);
+    if (!match) continue;
+    const [, y, m, d, slug] = match;
     const [year, month, day] = [y, m, d].map((it) => parseInt(it, 10));
     const date = new Date(Date.UTC(year, month - 1, day));
 
@@ -337,9 +337,9 @@ async function collect_research_papers(ctx: Ctx, filter: string): Promise<Post[]
     if (filter !== "") {
       if (file_path.indexOf(filter) === -1) continue;
     }
-    const [, y, m, d, slug] = file_path.match(
-      /^.*(\d\d\d\d)-(\d\d)-(\d\d)-(.*)\.md$/,
-    )!;
+    const match = file_path.match(/^.*(\d\d\d\d)-(\d\d)-(\d\d)-(.*)\.md$/);
+    if (!match) continue;
+    const [, y, m, d, slug] = match;
     const [year, month, day] = [y, m, d].map((it) => parseInt(it, 10));
     const date = new Date(Date.UTC(year, month - 1, day));
 
