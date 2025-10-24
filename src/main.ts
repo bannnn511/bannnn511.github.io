@@ -16,7 +16,7 @@ import { spell } from "./spell.ts";
 
 async function main() {
   const params = {
-    blogroll: false,
+    blogroll: true,
     update: false,
     spell: false,
     profile: false,

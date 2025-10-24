@@ -210,3 +210,44 @@ dfn, .small-caps { font-style: normal; font-variant: small-caps; }
 .hl-subst { color: rgba(0, 0, 0, .9); }
 .hl-attr, .hl-symbol { color: #008080; }
 .hl-line { background-color: #ffc; }
+
+/* Obsidian-style callouts */
+.callout {
+  border-left: 4px solid #ccc;
+  padding: 10px 15px;
+  margin: 10px 0;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.callout-pdf {
+  border-left-color: #ff6b6b;
+  background-color: #fff5f5;
+}
+
+.callout-important {
+  border-left-color: #ffd93d;
+  background-color: #fffef5;
+}
+
+.callout-red {
+  border-left-color: #ff4757;
+  background-color: #fff5f5;
+}
+
+.callout-yellow {
+  border-left-color: #ffa726;
+  background-color: #fffef5;
+}
+
+.callout-note {
+  border-left-color: #4ecdc4;
+  background-color: #f0fffe;
+}
+
+.callout-title {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+

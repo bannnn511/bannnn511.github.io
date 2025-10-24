@@ -13,3 +13,5 @@ https://without.boats/index.xml
 https://www.scattered-thoughts.net/atom.xml
 https://yosefk.com/blog/feed
 https://matklad.github.io/feed.xml
+https://vondra.me/index.xml
+https://jack-vanlightly.com/?format=rss

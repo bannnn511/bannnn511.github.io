@@ -17,6 +17,9 @@ export type RenderCtx = {
  * - deno run must have --allow-run and --allow-write=./out permissions.
  */
 export function parse(source: string): Doc {
+  // Preprocess Obsidian syntax
+  source = preprocessObsidian(source);
+
   ensureTmpDir();
   const inputPath = Deno.makeTempFileSync({ dir: "./out/tmp", suffix: ".md" });
 
@@ -26,7 +29,7 @@ export function parse(source: string): Doc {
     const cmd = new Deno.Command("pandoc", {
       args: [
         "-f",
-        "gfm", // GitHub-Flavored Markdown input
+        "gfm+fenced_divs", // GitHub-Flavored Markdown input
         "-t",
         "html", // HTML fragment output
         "--mathjax", // preserve math for client-side MathJax
@@ -149,4 +152,86 @@ function stripHtml(s: string): string {
 function findId(attrs: string): string | null {
   const m = attrs.match(/\sid="([^"]+)"/i);
   return m ? m[1] : null;
+}
+
+function processWikilinks(line: string): string {
+  return line.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, (match, link, alt) => {
+    const display = alt ? alt.slice(1) : link;
+    // For now, just return the display text, since links may not resolve in static site
+    return display;
+  });
+}
+
+/**
+ * Preprocess Obsidian-specific syntax to standard Markdown/HTML.
+ */
+function preprocessObsidian(source: string): string {
+  const lines = source.split('\n');
+  const result: string[] = [];
+  let inCallout = false;
+  let calloutType = '';
+  let calloutTitle = '';
+  const calloutQuote: string[] = [];
+  const calloutNotes: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Check for callout start: > [!type] or > [!type|meta]
+    const calloutMatch = line.match(/^>\s*\[!([^\]|]+)(\|[^\]]*)?\]\s*(.*)$/);
+    if (calloutMatch) {
+      if (inCallout) {
+        // Close previous callout
+        result.push(buildCalloutHTML(calloutType, calloutTitle, calloutQuote, calloutNotes));
+        calloutQuote.length = 0;
+        calloutNotes.length = 0;
+      }
+      inCallout = true;
+      calloutType = calloutMatch[1];
+      const remaining = calloutMatch[3];
+      calloutTitle = remaining ? processWikilinks(remaining) : '';
+      continue;
+    }
+
+    // Check for continuation of callout: > content
+    const calloutContinueMatch = line.match(/^>\s*(.*)$/);
+    if (inCallout && calloutContinueMatch) {
+      const content = calloutContinueMatch[1];
+      if (content.startsWith('>') || content.trim() === '' && calloutQuote.length > 0) {
+        calloutQuote.push(line);
+      } else {
+        calloutNotes.push(content);
+      }
+      continue;
+    }
+
+    // If we were in a callout, close it
+    if (inCallout) {
+      result.push(buildCalloutHTML(calloutType, calloutTitle, calloutQuote, calloutNotes));
+      inCallout = false;
+      calloutQuote.length = 0;
+      calloutNotes.length = 0;
+    }
+
+    // Handle wikilinks: [[link|text]] or [[link]]
+    const processedLine = processWikilinks(line);
+
+    result.push(processedLine);
+  }
+
+  // Close any remaining callout
+  if (inCallout) {
+    result.push(buildCalloutHTML(calloutType, calloutTitle, calloutQuote, calloutNotes));
+  }
+
+  return result.join('\n');
+}
+
+function buildCalloutHTML(type: string, title: string, quote: string[], notes: string[]): string {
+  let md = `::: {.callout .callout-${type.toLowerCase()}}\n`;
+  if (title) md += `**${title}**\n\n`;
+  if (quote.length) md += `**PDF Quote:**\n\n${quote.join('\n')}\n\n`;
+  if (notes.length) md += `**Notes:**\n\n${notes.map(processWikilinks).join('\n')}\n\n`;
+  md += ':::\n';
+  return md;
 }
