@@ -157,6 +157,7 @@ export function Post({ post }: { post: PostData }) {
       <article>
         <Raw unsafe={post.content.value} />
       </article>
+      <script src="/assets/toc.js"></script>
     </Base>
   );
 }

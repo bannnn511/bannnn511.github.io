@@ -12,6 +12,9 @@ body {
     padding: 2ch;
     margin-left: auto;
     margin-right: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
 header { /* Site Header */
@@ -40,11 +43,86 @@ footer {
 main {
     max-width: 80ch;
     margin: 0 auto;
+    flex: 1;
+    display: flex;
+    gap: 4ch;
+    width: 100%;
 }
 
 article {
     max-width: 80ch;
-    margin: 0 auto;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Table of Contents Sidebar */
+.toc-sidebar {
+    width: 20ch;
+    position: sticky;
+    top: 2ch;
+    align-self: flex-start;
+    max-height: calc(100vh - 4ch);
+    overflow-y: auto;
+    display: none;
+}
+
+@media (min-width: 120ch) {
+    .toc-sidebar {
+        display: block;
+    }
+}
+
+.toc-sidebar nav {
+    font-family: "Open Sans", sans-serif;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.toc-sidebar nav a {
+    display: block;
+    color: rgba(0, 0, 0, 0.6);
+    text-decoration: none;
+    padding: 0.25rem 0;
+    border-left: 2px solid transparent;
+    padding-left: 0.5ch;
+    transition: all 0.2s ease;
+}
+
+.toc-sidebar nav a:hover {
+    color: #4A90E2;
+    border-left-color: #4A90E2;
+}
+
+.toc-sidebar nav a.active {
+    color: #4A90E2;
+    border-left-color: #4A90E2;
+    font-weight: 500;
+}
+
+.toc-sidebar nav .toc-h2 {
+    padding-left: 0.5ch;
+}
+
+.toc-sidebar nav .toc-h3 {
+    padding-left: 2ch;
+    font-size: 0.8rem;
+}
+
+.toc-sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.toc-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.toc-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+}
+
+.toc-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
 }
 
 h1     { margin-bottom: 0.75rem; }
@@ -85,8 +163,46 @@ table, td, th { border: 1px solid #dedede; }
 td, th { padding: 0.5625em 0.625em }
 
 ol, ul, dd { padding-left: 3ch; }
-ul { list-style-type: circle;}
+ul { list-style-type: disc;}
+ul::marker { color: #999 !important; }
+ul li::marker { color: #999 !important; }
 .roman { list-style-type: lower-roman; }
+
+/* Indent guides - Obsidian style */
+ul ul, ul ol, ol ul, ol ol {
+    position: relative;
+}
+
+ul ul::before, ol ul::before {
+    content: '';
+    position: absolute;
+    left: -1.5ch;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: rgba(0, 0, 0, 0.12);
+}
+
+ul ol::before, ol ol::before {
+    content: '';
+    position: absolute;
+    left: -1.5ch;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: rgba(0, 0, 0, 0.12);
+}
+
+/* Additional indent guides for deeper nesting */
+ul ul ul::before, ul ol ul::before, ol ul ul::before, ol ol ul::before {
+    left: -1.5ch;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+ul ul ol::before, ul ol ol::before, ol ul ol::before, ol ol ol::before {
+    left: -1.5ch;
+    background-color: rgba(0, 0, 0, 0.1);
+}
 
 dt { font-weight: bold; }
 

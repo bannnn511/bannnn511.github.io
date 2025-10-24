@@ -1,9 +1,10 @@
 # Chip Multithreading System Need a New Operating System Scheduler
 
 **Authors:** Alexandra Fedorova*†, Christopher Small†, Daniel Nussbaum†, and
-Margo Seltzer* *Harvard University, †Sun Microsystems **Published in:**
+Margo Seltzer* *Harvard University, †Sun Microsystems 
+**Published in:**
 
---------------------------------------------------------------------------------
+---
 
 ## Question–Answer Form
 
@@ -16,46 +17,40 @@ Margo Seltzer* *Harvard University, †Sun Microsystems **Published in:**
   benchmark CPU ultilization but not taking account of other CPU resources such
   as caches
 
---------------------------------------------------------------------------------
+---
 
 ### 2. What is the motivation for this work?
 
 - What is the **people problem** and the **technical problem**?
-
   - modern server applications: web services, online transaction system had poor
     ultilization for CPU pipeline
 
 - How is it distilled into a **research question**?
-
   - CMP (chip multiprocessing) and hardware multithreading (MT) were designed to
     improve processor ultilization for OLTP workload but the scheduler policy
     did not take advantages of new CPU architecture
 
 - Why doesn’t the people problem have a **trivial solution**?
-
   - OLTP workload requires hundred of threads which leads to 10^27 combination
     to evaluate. Hence, the needs of different designs
   - modeling resource contention is a hard problem, good prediction is difficult
     to achieve
 
 - What are the **previous solutions**, and why are they **inadequate**?
-
   - previous solutions ran on MT systems which yield 17% improvement but did not
     design for CMP
 
---------------------------------------------------------------------------------
+---
 
 ### 3. What is the proposed solution (hypothesis, idea, design)?
 
 - Why is it believed this solution will work?
-
   - CPI (cycles-per-instruction) is used as a heuristic to measure workload
   - From the experiments it is observed that instruction mix between
     long-latency instruction and short-latency instructions yield the best CPU
     ultilization because it can interleaves execution from threads
 
 - How does it represent an **improvement**?
-
   - specialized scheduler for CMT systems has the potential for a much greater
     gain—it can improve application performance by as much as a **factor of
     two** over a naïve scheduler.
@@ -75,16 +70,15 @@ Margo Seltzer* *Harvard University, †Sun Microsystems **Published in:**
       design
     - co-scheduling heuristic seems to be a good policy to take into account
 
---------------------------------------------------------------------------------
+---
 
 ### 4. What is the author’s evaluation of the solution?
 
 - ## What **logic, argument, evidence, artifacts**, or **experiments** are presented in support of the idea?
 
---------------------------------------------------------------------------------
+---
 
 ### 5. What is your analysis of the identified problem, idea, and evaluation?
-
 - Is this a **good idea**?
 
 - What **flaws** do you perceive in the work?
@@ -98,7 +92,7 @@ Margo Seltzer* *Harvard University, †Sun Microsystems **Published in:**
   - What would it **take to deliver** it?
   - When might it **become a reality**?
 
---------------------------------------------------------------------------------
+---
 
 ### 6. What are the paper’s contributions?
 
@@ -107,7 +101,7 @@ Margo Seltzer* *Harvard University, †Sun Microsystems **Published in:**
 
 > *(Ideas, methods, software, experimental results, techniques, etc.)*
 
---------------------------------------------------------------------------------
+---
 
 ### 7. What are future directions for this research?
 
@@ -116,7 +110,7 @@ Margo Seltzer* *Harvard University, †Sun Microsystems **Published in:**
 
 > *(Driven by shortcomings, critiques, or opportunities.)*
 
---------------------------------------------------------------------------------
+---
 
 ### 8. What questions are you left with?
 
