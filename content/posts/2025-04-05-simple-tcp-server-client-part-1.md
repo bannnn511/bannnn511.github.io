@@ -2,16 +2,25 @@
 
 ## What are sockets?
 
-If you have ever worked with REST APIs services, for example. You probably used something like Nodejs, Flask,... to listen to "localhost:8000", and your APIs can be called by clients to send requests to this address. Underlying all the abstractions that we have taken for granted of such as HTTP, TCP,... Let's dive in the underlying mechanism that is used to implement those protocols: socket.
+If you have ever worked with REST APIs services, for example. You probably used
+something like Nodejs, Flask,... to listen to "localhost:8000", and your APIs
+can be called by clients to send requests to this address. Underlying all the
+abstractions that we have taken for granted of such as HTTP, TCP,... Let's dive
+in the underlying mechanism that is used to implement those protocols: socket.
 
 ### What are sockets exactly?
 
-Sockets are like files that you can write and read from. Imagine you are a restaurant owner;
-Whenever customers want to order something from your restaurant, you will give them a paper so that they can write their order onto the paper. When other clients want to order, you will also give them a new order paper. This order paper is our socket.
+Sockets are like files that you can write and read from. Imagine you are a
+restaurant owner; Whenever customers want to order something from your
+restaurant, you will give them a paper so that they can write their order onto
+the paper. When other clients want to order, you will also give them a new order
+paper. This order paper is our socket.
 
-Sockets are created by using the `socket()` system call, which will return a file descriptor.
-With file descriptors, we can perform I/O operations such as `read`, `write`.
-In a server-client scenario, applications must open their own sockets. The server will bind its sockets to a known address so that clients can locate it.
+Sockets are created by using the `socket()` system call, which will return a
+file descriptor. With file descriptors, we can perform I/O operations such as
+`read`, `write`. In a server-client scenario, applications must open their own
+sockets. The server will bind its sockets to a known address so that clients can
+locate it.
 
 ![socket communication between A and B](/assets/unix/socket_a_b.png)
 
@@ -19,13 +28,19 @@ In a server-client scenario, applications must open their own sockets. The serve
 
 To understand socket programming better, let's use a restaurant analogy:
 
-1. **Setting up the restaurant (server)**:
-    - First, you need to find a place to set up your restaurant (create a socket)
-    - Next, you announce your location at a specific address (bind to an address)
-    - Then, you open for business and wait for customers (listen for connections)
-    - When a customer arrives, you give them an order paper (accept the connection)
+1.  **Setting up the restaurant (server)**:
 
-2. **Customer visiting the restaurant (client)**:
+    - First, you need to find a place to set up your restaurant (create a
+      socket)
+    - Next, you announce your location at a specific address (bind to an
+      address)
+    - Then, you open for business and wait for customers (listen for
+      connections)
+    - When a customer arrives, you give them an order paper (accept the
+      connection)
+
+2.  **Customer visiting the restaurant (client)**:
+
     - The customer finds your restaurant address (identifies server socket)
     - They enter your restaurant (connect to your socket)
     - They write their order on the paper you provided (send data)
@@ -34,12 +49,15 @@ To understand socket programming better, let's use a restaurant analogy:
 
 ### What are socket system calls?
 
-- `socket()`: creates a new socket which the kernel will return as a new file descriptor
+- `socket()`: creates a new socket which the kernel will return as a new file
+  descriptor
 - `bind()`: binds a socket to an address so clients can locate it
 - `listen()`: allows a stream socket to accept incoming connections
-- `accept()`: accepts a connection from a peer application on a listening stream socket
+- `accept()`: accepts a connection from a peer application on a listening stream
+  socket
 - `connect()`: establishes a connection with another socket
-- Socket I/O can be performed with `read()` and `write()` or socket-specific calls: `send()`, `recv()`, `sendto()`, `recvfrom()`
+- Socket I/O can be performed with `read()` and `write()` or socket-specific
+  calls: `send()`, `recv()`, `sendto()`, `recvfrom()`
 
 ![socket communication flow](/assets/unix/socket_flow.png)
 
@@ -47,25 +65,35 @@ To understand socket programming better, let's use a restaurant analogy:
 
 ### Server flows
 
-1. Server asks the kernel for a file descriptor (socket_fd).
-2. Server binds the file descriptors to an address (for example: `localhost:8000`).
-3. With `listen()`, servers can wait for incoming requests and handle them.
-4. When clients issue `connect()`, servers will `accept` the connection from clients; at this point, we also receive a new file descriptors that point to the client's socket so that we can interact with clients.
+1.  Server asks the kernel for a file descriptor (socket_fd).
+2.  Server binds the file descriptors to an address (for example:
+    `localhost:8000`).
+3.  With `listen()`, servers can wait for incoming requests and handle them.
+4.  When clients issue `connect()`, servers will `accept` the connection from
+    clients; at this point, we also receive a new file descriptors that point to
+    the client's socket so that we can interact with clients.
 
 ### Client flows
 
-1. Client creates a socket using the `socket()` system call to server's address, and clients will receive from the kernel a file descriptor point to server's socket.
-2. Client uses `connect()` to establish a connection with the server at its known address (e.g., `localhost:8000`).
-3. Once the connection is established, the client can communicate with the server using `read()` and `write()` system calls or socket-specific functions like `send()` and `recv()`.
-4. When finished, the client closes the socket connection.
+1.  Client creates a socket using the `socket()` system call to server's
+    address, and clients will receive from the kernel a file descriptor point to
+    server's socket.
+2.  Client uses `connect()` to establish a connection with the server at its
+    known address (e.g., `localhost:8000`).
+3.  Once the connection is established, the client can communicate with the
+    server using `read()` and `write()` system calls or socket-specific
+    functions like `send()` and `recv()`.
+4.  When finished, the client closes the socket connection.
 
-Unlike the server, which passively waits for connections, the client actively initiates the connection process to the server's predefined address.
+Unlike the server, which passively waits for connections, the client actively
+initiates the connection process to the server's predefined address.
 
 ### Code Implementation
 
-You can find the full code implementation here: [Simple Server-Client Example](https://github.com/bannnn511/code/tree/main/C/unix/socket/1.simple_server_client)
+You can find the full code implementation here: [Simple Server-Client
+Example](https://github.com/bannnn511/code/tree/main/C/unix/socket/1.simple_server_client)
 
-```c
+``` c
 // server.c
 /**
  * socket() creates an endpoint for communication and returns a file descriptor
@@ -136,7 +164,7 @@ if (newfd == -1) {
 
 Here is the client's code:
 
-```c
+``` c
 // client.c
 /**
  * socket() creates an endpoint for communication and returns a file descriptor
@@ -168,19 +196,30 @@ if (connect(socket_fd, p->ai_addr, p->ai_addrlen) == -1) {
 
 ## How do I scale my restaurants so that they can serve multiple customers at the same time?
 
-If you remember, `accept()` system calls will block until it receive a connection, so how can we serve multiple connections at the same time? We can use 2 patterns to solve this problem:process-per-connection and thread-per-connection. Thread-per-connection is the most common pattern used in modern servers. It is more efficient than process-per-connection because threads share the same memory space, which reduces the overhead of creating and managing multiple processes.
+If you remember, `accept()` system calls will block until it receive a
+connection, so how can we serve multiple connections at the same time? We can
+use 2 patterns to solve this problem:process-per-connection and
+thread-per-connection. Thread-per-connection is the most common pattern used in
+modern servers. It is more efficient than process-per-connection because threads
+share the same memory space, which reduces the overhead of creating and managing
+multiple processes.
 
 The flow of the server using threads will be like this:
 
-1. A connection comes in to the server.
-2. The main server process accepts the connection.
-3. It creates a new thread to handle this connection.
-4. The thread continues to handle its connection in parallel while the server process goes back to step #1.
+1.  A connection comes in to the server.
+2.  The main server process accepts the connection.
+3.  It creates a new thread to handle this connection.
+4.  The thread continues to handle its connection in parallel while the server
+    process goes back to step \#1.
 
-Using threads instead of processes is more efficient because threads share the same memory space, which reduces the overhead of creating and managing multiple connections. Each thread will handle its own client independently while the main thread continues to accept new connections.
-You can find the full code here: [Simple Server-Client Example with Threading](https://github.com/bannnn511/code/tree/main/C/unix/socket/1.5.simple_server_client_thread)
+Using threads instead of processes is more efficient because threads share the
+same memory space, which reduces the overhead of creating and managing multiple
+connections. Each thread will handle its own client independently while the main
+thread continues to accept new connections. You can find the full code here:
+[Simple Server-Client Example with
+Threading](https://github.com/bannnn511/code/tree/main/C/unix/socket/1.5.simple_server_client_thread)
 
-```c
+``` c
     // server setup to receive new connections
     // socket
     // bind
@@ -211,8 +250,14 @@ You can find the full code here: [Simple Server-Client Example with Threading](h
     }
 ```
 
-Using a thread-per-connection, no extra code is needed to handle multiple connections. Each thread will handle its own connection and can communicate with the client independently. This is a simple and effective way to scale your server to handle multiple clients simultaneously. The simplicity requires little more extra cognitive load to understand the code.
+Using a thread-per-connection, no extra code is needed to handle multiple
+connections. Each thread will handle its own connection and can communicate with
+the client independently. This is a simple and effective way to scale your
+server to handle multiple clients simultaneously. The simplicity requires little
+more extra cognitive load to understand the code.
 
 ## Conclusion
 
-In this article, we have learned about the basics of socket programming, how to create a simple server-client application using sockets, and how to scale our server to handle multiple clients using threads.
+In this article, we have learned about the basics of socket programming, how to
+create a simple server-client application using sockets, and how to scale our
+server to handle multiple clients using threads.

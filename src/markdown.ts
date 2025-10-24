@@ -177,8 +177,8 @@ function preprocessObsidian(source: string): string {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Check for callout start: > [!type] or > [!type|meta]
-    const calloutMatch = line.match(/^>\s*\[!([^\]|]+)(\|[^\]]*)?\]\s*(.*)$/);
+    // Check for callout start: > [s*!type] or > [!type|meta]
+    const calloutMatch = line.match(/^>\s*\[s*!([^\]|]+)(\|[^\]]*)?\]\s*(.*)$/);
     if (calloutMatch) {
       if (inCallout) {
         // Close previous callout
@@ -228,10 +228,10 @@ function preprocessObsidian(source: string): string {
 }
 
 function buildCalloutHTML(type: string, title: string, quote: string[], notes: string[]): string {
-  let md = `::: {.callout .callout-${type.toLowerCase()}}\n`;
+  let md = `<div class="callout" markdown="1"> .callout-${type.toLowerCase()}}\n`;
   if (title) md += `**${title}**\n\n`;
   if (quote.length) md += `**PDF Quote:**\n\n${quote.join('\n')}\n\n`;
   if (notes.length) md += `**Notes:**\n\n${notes.map(processWikilinks).join('\n')}\n\n`;
-  md += ':::\n';
+  md += '</div>\n';
   return md;
 }

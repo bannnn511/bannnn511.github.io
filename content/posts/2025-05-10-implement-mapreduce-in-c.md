@@ -1,57 +1,77 @@
 # Implement MapReduce in C
 
-I wrote a simple MapReduce implementation in C. The code is designed to be run on a single machine, but it can be extended to work in a distributed environment. This implementation is based on the skeleton from [Prof. Remzi's project](https://github.com/remzi-arpacidusseau/ostep-projects/blob/}
+I wrote a simple MapReduce implementation in C. The code is designed to be run
+on a single machine, but it can be extended to work in a distributed
+environment. This implementation is based on the skeleton from \[Prof. Remzi's
+project\]([https://github.com/remzi-arpacidusseau/ostep-projects/blob/}](https://github.com/remzi-arpacidusseau/ostep-projects/blob/})
 
-I also have some notes from the [MapReduce paper](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf) in [MapReduce](/research-papers/2025/09/11/mapreduce-simplified-data-processing-on-large-clusters.html). Reading the paper is recommended.
+I also have some notes from the [MapReduce
+paper](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf)
+in
+[MapReduce](/research-papers/2025/09/11/mapreduce-simplified-data-processing-on-large-clusters.html).
+Reading the paper is recommended.
 
 ## Overview
 
 ### Motivation
 
-The MapReduce programming model is designed to process large amounts of data in parallel across a distributed cluster. It simplifies the process of writing parallel programs by abstracting away the complexities of data distribution, fault tolerance, and synchronization.
+The MapReduce programming model is designed to process large amounts of data in
+parallel across a distributed cluster. It simplifies the process of writing
+parallel programs by abstracting away the complexities of data distribution,
+fault tolerance, and synchronization.
 
-The model consists of two main functions: the **Map** function, which processes input data and produces intermediate key-value pairs, and the **Reduce** function, which takes those intermediate key-value pairs and combines them to produce the final output.
+The model consists of two main functions: the **Map** function, which processes
+input data and produces intermediate key-value pairs, and the **Reduce**
+function, which takes those intermediate key-value pairs and combines them to
+produce the final output.
 
 ### Example: Word Count
 
 For example, in a word count application, given this input text:
 
-```
-Hello world
-Hello MapReduce
-```
+    Hello world
+    Hello MapReduce
 
 The Map function would produce the following intermediate key-value pairs:
 
-```
-("Hello", 1)
-("world", 1)
-("Hello", 1)
-("MapReduce", 1)
-```
+    ("Hello", 1)
+    ("world", 1)
+    ("Hello", 1)
+    ("MapReduce", 1)
 
-The Reduce function would then take these intermediate key-value pairs and combine them to produce the final output:
+The Reduce function would then take these intermediate key-value pairs and
+combine them to produce the final output:
 
-```
-("Hello", 2)
-("world", 1)
-("MapReduce", 1)
-```
+    ("Hello", 2)
+    ("world", 1)
+    ("MapReduce", 1)
 
 ### Key Points
 
-- **Data Processing**: MapReduce is widely used for processing large datasets in **parallel**, such as log analysis, data transformation, and ETL (Extract, Transform, Load) processes.
-- **Batch Processing**: It is suitable for batch processing tasks where data can be processed in chunks rather than in real-time.
-- **Simplicity**: The programming model abstracts away the complexities of parallelization, fault tolerance, and data distribution, making it easier for developers to write distributed applications.
+- **Data Processing**: MapReduce is widely used for processing large datasets in
+  **parallel**, such as log analysis, data transformation, and ETL (Extract,
+  Transform, Load) processes.
+- **Batch Processing**: It is suitable for batch processing tasks where data can
+  be processed in chunks rather than in real-time.
+- **Simplicity**: The programming model abstracts away the complexities of
+  parallelization, fault tolerance, and data distribution, making it easier for
+  developers to write distributed applications.
 
 ### Limitations
 
-- **Latency**: MapReduce is not suitable for real-time processing or low-latency applications, as it typically involves batch processing.
-- **Interactive Queries**: It is not designed for interactive queries or ad-hoc data analysis, as it requires a complete job to be submitted and processed before results are available.
-- **Extensibility**: While MapReduce is powerful, it may not be the best fit for all types of data processing tasks, as chaining multiple MapReduce workflows can be challenging. Some applications may require more specialized frameworks or libraries.
+- **Latency**: MapReduce is not suitable for real-time processing or low-latency
+  applications, as it typically involves batch processing.
+- **Interactive Queries**: It is not designed for interactive queries or ad-hoc
+  data analysis, as it requires a complete job to be submitted and processed
+  before results are available.
+- **Extensibility**: While MapReduce is powerful, it may not be the best fit for
+  all types of data processing tasks, as chaining multiple MapReduce workflows
+  can be challenging. Some applications may require more specialized frameworks
+  or libraries.
 
 ## How can the user use the MapReduce library?
-```c
+
+``` c
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -98,24 +118,43 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-Users will need to implement the `Map` and `Reduce` functions according to their specific use case. The `Map` function processes input data and emits intermediate key-value pairs, while the `Reduce` function takes those intermediate key-value pairs and combines them to produce the final result.
-In the example code, `Map` will read from the buffer, for each word, `MR_Emit` will be called to pass a key-value pair to our `MapReduce` library. When all `Map` tasks are done, our `MapReduce` will call Reduce to pass all those keys back to the user-defined `Reduce` function. The `MapReduce` library can be invoked from `MR_Run`. `wordcount` can be used from the CLI by passing files that we need to process. `MR_Run` will receive all arguments from the command line; it also receives pointers for `Map` and `Reduce` functions. For each `Map` and `Reduce` task, users can define how many threads are needed to use. There is also the default partition function, so that intermediate key-value pairs will be used for partitions. Users can provide their own partition hash function.
+Users will need to implement the `Map` and `Reduce` functions according to their
+specific use case. The `Map` function processes input data and emits
+intermediate key-value pairs, while the `Reduce` function takes those
+intermediate key-value pairs and combines them to produce the final result. In
+the example code, `Map` will read from the buffer, for each word, `MR_Emit` will
+be called to pass a key-value pair to our `MapReduce` library. When all `Map`
+tasks are done, our `MapReduce` will call Reduce to pass all those keys back to
+the user-defined `Reduce` function. The `MapReduce` library can be invoked from
+`MR_Run`. `wordcount` can be used from the CLI by passing files that we need to
+process. `MR_Run` will receive all arguments from the command line; it also
+receives pointers for `Map` and `Reduce` functions. For each `Map` and `Reduce`
+task, users can define how many threads are needed to use. There is also the
+default partition function, so that intermediate key-value pairs will be used
+for partitions. Users can provide their own partition hash function.
 
 ## Implementation
 
-You can find my implementation [here](https://github.com/bannnn511/code/blob/main/C/projects/mapreduce/mapreduce.c).
+You can find my implementation
+[here](https://github.com/bannnn511/code/blob/main/C/projects/mapreduce/mapreduce.c).
 
 ### Step 1: File Splitting and Program Distribution
 
-> "The MapReduce library in the user program first splits the input files into M pieces of typically 16 megabytes to 64 megabytes (MB) per piece (controllable by the user via an optional parameter). It then starts up many copies of the program on a cluster of machines."
+> "The MapReduce library in the user program first splits the input files into M
+> pieces of typically 16 megabytes to 64 megabytes (MB) per piece (controllable
+> by the user via an optional parameter). It then starts up many copies of the
+> program on a cluster of machines."
 
-You can see from the `wordcount` example above, `./wordcount` can be called from the CLI with `file1.txt` and `file2.txt`.
+You can see from the `wordcount` example above, `./wordcount` can be called from
+the CLI with `file1.txt` and `file2.txt`.
 
 Those files will be split into N 16mb files.
 
-Instead of running worker programs in a cluster of machines, I will create `map` and `reduce` workers using thread pool implementations. Those threadpools will pull tasks to execute users `Map` and `Reduce` functions.
+Instead of running worker programs in a cluster of machines, I will create `map`
+and `reduce` workers using thread pool implementations. Those threadpools will
+pull tasks to execute users `Map` and `Reduce` functions.
 
-```c
+``` c
 void MR_Run(int argc, char *argv[], Mapper map, int num_mappers, Reducer reduce, int num_reducers,
             Partitioner partition) {
     if (argc < 2) {
@@ -146,15 +185,23 @@ void MR_Run(int argc, char *argv[], Mapper map, int num_mappers, Reducer reduce,
 
 ### Step 2: Master-Worker Architecture
 
-> "One of the copies of the program is special – the master. The rest are workers that are assigned work by the master. There are M map tasks and R reduce tasks to assign. The master picks idle workers and assigns each one a map task or a reduce task."
+> "One of the copies of the program is special – the master. The rest are
+> workers that are assigned work by the master. There are M map tasks and R
+> reduce tasks to assign. The master picks idle workers and assigns each one a
+> map task or a reduce task."
 
-After we shard the input from users into M shards, we will assign each `Map` worker a shard file to process.
+After we shard the input from users into M shards, we will assign each `Map`
+worker a shard file to process.
 
-To simplify our implementation, the main thread will start threadpools and assign each thread their `Map` and `Reduce` tasks to process the sharded files above.
+To simplify our implementation, the main thread will start threadpools and
+assign each thread their `Map` and `Reduce` tasks to process the sharded files
+above.
 
-To adopt this implementation to be used in a more cluster-machines approach, workers can start as a different process, grpc can be used to implement communication between the master and workers.
+To adopt this implementation to be used in a more cluster-machines approach,
+workers can start as a different process, grpc can be used to implement
+communication between the master and workers.
 
-```c
+``` c
 // Initializes threadpools for map tasks
 thread_pool *mapper_pool = malloc(sizeof(thread_pool));
 if (mapper_pool == NULL) {
@@ -175,13 +222,18 @@ thread_pool_init(reducer_pool, num_reducers, 10, 0);
 
 ### Step 3: Map Task Execution
 
-> "A worker who is assigned a map task reads the contents of the corresponding input split. It parses records out of the input data and passes each record to the user-defined Map function. The intermediate key/value pairs produced by the Map function are buffered in memory."
+> "A worker who is assigned a map task reads the contents of the corresponding
+> input split. It parses records out of the input data and passes each record to
+> the user-defined Map function. The intermediate key/value pairs produced by
+> the Map function are buffered in memory."
 
-Once a worker is assigned a `Map` task, it will read data from the assigned shards into memory and pass it to the user's `Map` defined function.
+Once a worker is assigned a `Map` task, it will read data from the assigned
+shards into memory and pass it to the user's `Map` defined function.
 
-Users will emit each record as a key-value pair, and will be buffered in our global `KeyValueBuffer *buffers = NULL;`
+Users will emit each record as a key-value pair, and will be buffered in our
+global `KeyValueBuffer *buffers = NULL;`
 
-```c
+``` c
 
 // add map task to thread pool for each shard file
 for (int i = 0; i < s->size; i++) {
@@ -193,7 +245,7 @@ for (int i = 0; i < s->size; i++) {
 thread_pool_wait(mapper_pool);
 ```
 
-```c
+``` c
 void map_worker(void *arg) {
     const map_worker_task t = *(map_worker_task *)arg;
     const size_t buffer_size = t.s.end - t.s.start + 1;
@@ -216,15 +268,22 @@ void map_worker(void *arg) {
 
 ### Step 4: Intermediate Data Partitioning
 
-> "Periodically, the buffered pairs are written to local disk, partitioned into R regions by the partitioning function. The locations of these buffered pairs on the local disk are passed back to the master, who is responsible for forwarding these locations to the reduce workers."
+> "Periodically, the buffered pairs are written to local disk, partitioned into
+> R regions by the partitioning function. The locations of these buffered pairs
+> on the local disk are passed back to the master, who is responsible for
+> forwarding these locations to the reduce workers."
 
-The emitted data will be called from the user's code into our `MR_Emit` function. Here, the key will be used to determine which partition it will belong to.
+The emitted data will be called from the user's code into our `MR_Emit`
+function. Here, the key will be used to determine which partition it will belong
+to.
 
-Periodically, the buffer will be flushed into intermediate files or when the buffer is full.
+Periodically, the buffer will be flushed into intermediate files or when the
+buffer is full.
 
-The number of intermediates will be the same as the number of reducers to maximize our parallel data processing.
+The number of intermediates will be the same as the number of reducers to
+maximize our parallel data processing.
 
-```c
+``` c
 void MR_Emit(char *key, char *value) {
     const ul partition_no = partitioner(key, num_partitions);
 
@@ -232,7 +291,7 @@ void MR_Emit(char *key, char *value) {
 }
 ```
 
-```c
+``` c
 // append_buffer flushes buffer if it exceeds the time threshold or capacity
 void append_buffer(const ul partition_number, char *key, char *value) {
     if (buffers == NULL || partition_number >= num_partitions) {
@@ -276,33 +335,44 @@ void append_buffer(const ul partition_number, char *key, char *value) {
 
 ### Step 5: Data Shuffling and Sorting
 
-> "When a reduce worker is notified by the master about these locations, it uses remote procedure calls to read the buffered data from the local disks of the map workers. When a reducer worker has read all intermediate data, it sorts it by the intermediate keys so that all occurrences of the same key are grouped together. The sorting is needed because typically many different keys map to the same reduce task."
+> "When a reduce worker is notified by the master about these locations, it uses
+> remote procedure calls to read the buffered data from the local disks of the
+> map workers. When a reducer worker has read all intermediate data, it sorts it
+> by the intermediate keys so that all occurrences of the same key are grouped
+> together. The sorting is needed because typically many different keys map to
+> the same reduce task."
 
-Remember that `MapReduce` is used in a distributed environment setting, the intermediate files from the `Map` tasks reside on the local machine of that mapper worker. For the `Reducer` tasks to read those files, remote procedure calls to read those files into memory. For simplicity, our `Reducer` worker can read directly from our local machine.
+Remember that `MapReduce` is used in a distributed environment setting, the
+intermediate files from the `Map` tasks reside on the local machine of that
+mapper worker. For the `Reducer` tasks to read those files, remote procedure
+calls to read those files into memory. For simplicity, our `Reducer` worker can
+read directly from our local machine.
 
-After the `Reducer` reads all intermediate data, will will sort and shuffle those keys together.
+After the `Reducer` reads all intermediate data, will will sort and shuffle
+those keys together.
 
-For example,
-If we have these intermediate files with key-value pairs:
+For example, If we have these intermediate files with key-value pairs:
 
-```text
+``` text
 ("Hello", 1)
 ("world", 1)
 ("Hello", 1)
 ("MapReduce", 1)
 ```
 
-After the reducer reads all intermediate files, it will sort and shuffle those keys together:
+After the reducer reads all intermediate files, it will sort and shuffle those
+keys together:
 
-```text
+``` text
 ("Hello", [1, 1])
 ("MapReduce", [1])
 ("world", [1])
 ```
 
-Then the reducer will pass each key and its values to the user-defined `Reduce` function to produce the final output.
+Then the reducer will pass each key and its values to the user-defined `Reduce`
+function to produce the final output.
 
-```c
+``` c
 void reduce_worker(void *arg) {
     reduce_worker_task *t = arg;
 
@@ -323,31 +393,38 @@ void reduce_worker(void *arg) {
 }
 ```
 
-```
 
-### Step 6: Reduce Task Execution
+    ### Step 6: Reduce Task Execution
 
-> "The reduce worker iterates over the sorted intermediate data and for each unique intermediate key encountered, it passes the key and the corresponding set of intermediate values to the user's Reduce function. The output of the Reduce function is appended to a final output file for this reduce partition."
+    > "The reduce worker iterates over the sorted intermediate data and for each unique intermediate key encountered, it passes the key and the corresponding set of intermediate values to the user's Reduce function. The output of the Reduce function is appended to a final output file for this reduce partition."
 
-```c
-void reduce_worker(void *arg) {
-    /// shuffle and sort
-    for (ul i = 0; i < kvs->kv_count; i++) {
-        t->reduce(kvs->kvs[i].key, get_next, t->partition_number);
+    ```c
+    void reduce_worker(void *arg) {
+        /// shuffle and sort
+        for (ul i = 0; i < kvs->kv_count; i++) {
+            t->reduce(kvs->kvs[i].key, get_next, t->partition_number);
+        }
+
+        free(t);
     }
-
-    free(t);
-}
-```
 
 ## Conclusion
 
-In this article, I've demonstrated how to implement a simplified version of MapReduce in C, based on Google's MapReduce paper. While this implementation runs on a single machine using threads instead of distributed workers, it illustrates the key concepts of the MapReduce programming model: parallel data processing, key-value pair manipulation, and the separation of Map and Reduce phases.
+In this article, I've demonstrated how to implement a simplified version of
+MapReduce in C, based on Google's MapReduce paper. While this implementation
+runs on a single machine using threads instead of distributed workers, it
+illustrates the key concepts of the MapReduce programming model: parallel data
+processing, key-value pair manipulation, and the separation of Map and Reduce
+phases.
 
 The implementation includes core MapReduce features like:
+
 - File sharding and parallel processing
 - Intermediate key-value buffering and partitioning
 - Key sorting and shuffling
 - Thread pool management for Map and Reduce workers
 
-Though simplified, this implementation can serve as a learning tool for understanding distributed data processing concepts and can be extended to work in a truly distributed environment by adding networking capabilities, fault tolerance, and proper distributed coordination.
+Though simplified, this implementation can serve as a learning tool for
+understanding distributed data processing concepts and can be extended to work
+in a truly distributed environment by adding networking capabilities, fault
+tolerance, and proper distributed coordination.

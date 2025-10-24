@@ -1,27 +1,44 @@
 # Simple TCP Server-Client part 2, other concurrent Server Designs
 
-****
-## Traditional  Concurrent Server Model
+--------------------------------------------------------------------------------
 
-Remember the `accept` system calls from the previous [Simple TCP server client part 1](/2025/04/05/simple-tcp-server-client-part-1.html). This system call will block and wait for new connections; when new connections come in, `accept` returns a new file descriptor. In order to handle multiple connections, we create multiple processes or threads. However, for high-load servers such as a web server that needs to handle thousands of requests per minute, the overhead of creating a new process/thread for each client is too much for our server. We will look at some of these alternatives.
+## Traditional Concurrent Server Model
+
+Remember the `accept` system calls from the previous [Simple TCP server client
+part 1](/2025/04/05/simple-tcp-server-client-part-1.html). This system call will
+block and wait for new connections; when new connections come in, `accept`
+returns a new file descriptor. In order to handle multiple connections, we
+create multiple processes or threads. However, for high-load servers such as a
+web server that needs to handle thousands of requests per minute, the overhead
+of creating a new process/thread for each client is too much for our server. We
+will look at some of these alternatives.
 
 ## Server Pools
 
-Instead of creating new process/thread for each client. We can create a fixed number of threads before any requests are received. Each child in the server pool handle a client at a time, but instead of terminating the child process after each request, the child can fetch next requests to handle, this loop will continue to the end of time.
+Instead of creating new process/thread for each client. We can create a fixed
+number of threads before any requests are received. Each child in the server
+pool handle a client at a time, but instead of terminating the child process
+after each request, the child can fetch next requests to handle, this loop will
+continue to the end of time.
 
-There are some considerations with these models. The thread pool must be large enough. The main thread can monitor the number of unoccupied child in the server pools. At peak load, we can increase the size of the pool. When the load decreases, the size of our server pool can be reduced.
+There are some considerations with these models. The thread pool must be large
+enough. The main thread can monitor the number of unoccupied child in the server
+pools. At peak load, we can increase the size of the pool. When the load
+decreases, the size of our server pool can be reduced.
 
 Our server flow will look like this:
 
-1. The main thread will call `accept` to receive a new connection
-2. The main thread will pass the file descriptors containing the new connection to one of the free processes in the pool
-3. Our thread pool can be implemented as a [producer/consumer pattern](https://en.wikipedia.org/wiki/Producer%E2%80%93consumer_problem).
-4. A child in the worker pool will wait for new requests in the pool to handle
+1.  The main thread will call `accept` to receive a new connection
+2.  The main thread will pass the file descriptors containing the new connection
+    to one of the free processes in the pool
+3.  Our thread pool can be implemented as a [producer/consumer
+    pattern](https://en.wikipedia.org/wiki/Producer%E2%80%93consumer_problem).
+4.  A child in the worker pool will wait for new requests in the pool to handle
 
+You can find the full code
+[here](https://github.com/bannnn511/code/blob/main/C/unix/webserver/src/wserver.c).
 
-You can find the full code [here](https://github.com/bannnn511/code/blob/main/C/unix/webserver/src/wserver.c).
-
-```c
+``` c
 // create thread pool
 thread_pool *pool = malloc(sizeof(thread_pool));
 if (thread_pool_init(pool, threads, buffersize, policy) != 0) {
@@ -52,35 +69,55 @@ while (1) {
 
 ## Handling multiple requests with a single process
 
-For a server with a single process to handle multiple clients, it needs to have a method to simultaneously monitor multiple file descriptors. This type of concurrent programming style is widely known as **event-based concurrency**. With this type of programming, we must make all our blocking I/O as **non-blocking I/O** so that it does not block a single process. When a file is ready to be I/O, it can be seen as an event that has occurred, and we as users will need to listen to these events so that we can handle the data from I/O. Luckily, the OS gives us 3 I/O models for monitoring multiple file descriptors (I/O multiplexing, signal-driven and epoll).
+For a server with a single process to handle multiple clients, it needs to have
+a method to simultaneously monitor multiple file descriptors. This type of
+concurrent programming style is widely known as **event-based concurrency**.
+With this type of programming, we must make all our blocking I/O as
+**non-blocking I/O** so that it does not block a single process. When a file is
+ready to be I/O, it can be seen as an event that has occurred, and we as users
+will need to listen to these events so that we can handle the data from I/O.
+Luckily, the OS gives us 3 I/O models for monitoring multiple file descriptors
+(I/O multiplexing, signal-driven and epoll).
 
-Event-based concurrency can be seen in applications such as Nginx and Node.js. The main idea is to use a single process to handle multiple clients by using non-blocking I/O and event-driven programming.
-
+Event-based concurrency can be seen in applications such as Nginx and Node.js.
+The main idea is to use a single process to handle multiple clients by using
+non-blocking I/O and event-driven programming.
 
 ### I/O readiness
 
-In order to choose which technique should choose, let's look at two models of notification to check for file descriptor readiness.
+In order to choose which technique should choose, let's look at two models of
+notification to check for file descriptor readiness.
 
-**Level-triggered I/O**: The kernel notifies the process as long as the file descriptor remains ready (e.g., socket has data). If the process doesn't act, it keeps getting notified.
+**Level-triggered I/O**: The kernel notifies the process as long as the file
+descriptor remains ready (e.g., socket has data). If the process doesn't act, it
+keeps getting notified.
 
-**Edge-triggered I/O**: The kernel notifies the process only once when the state changes (e.g., data arrives). If the process misses it, no further notifications will occur.
+**Edge-triggered I/O**: The kernel notifies the process only once when the state
+changes (e.g., data arrives). If the process misses it, no further notifications
+will occur.
 
-Level-triggered is simpler but can waste CPU cycles. Edge-triggered needs careful non-blocking reads and draining loops, but is more efficient under high load.
+Level-triggered is simpler but can waste CPU cycles. Edge-triggered needs
+careful non-blocking reads and draining loops, but is more efficient under high
+load.
 
 ### I/O multiplexing (Level-triggered)
 
-I/O multiplexing is a technique that use `select` or `poll` to monitor multiple file descriptors to find out if I/O is possible.
-Let's look at how `select` works.
+I/O multiplexing is a technique that use `select` or `poll` to monitor multiple
+file descriptors to find out if I/O is possible. Let's look at how `select`
+works.
 
-1. `select` copies our file descriptors (the one that we want to monitor) into the kernel.
-2. Kernel will check every file descriptors one by one (O(n)).
-3. Kernel tells us which file descriptors are ready
-4. We have to setup the fds again every time we call `select` (the internal data struct has been modified by `select`)
+1.  `select` copies our file descriptors (the one that we want to monitor) into
+    the kernel.
+2.  Kernel will check every file descriptors one by one (O(n)).
+3.  Kernel tells us which file descriptors are ready
+4.  We have to setup the fds again every time we call `select` (the internal
+    data struct has been modified by `select`)
 
-You can file full code [here](https://github.com/bannnn511/code/blob/main/C/unix/socket/2.select_server_client/server.c).
+You can file full code
+[here](https://github.com/bannnn511/code/blob/main/C/unix/socket/2.select_server_client/server.c).
 Let's examine our server code using `select`:
 
-```c
+``` c
 //.. setup server
 while (keep_running) {
  // read_fds are socket fds that we need to monitor
@@ -112,27 +149,36 @@ while (keep_running) {
 
 ### epoll (Level-triggered, Edge-triggered)
 
-`epoll` is a Linux-specific I/O multiplexing mechanism that is more efficient than `select` and `poll`. For Windows and MacOS, there are `iocp` and `kqueue`. `epoll` uses a file descriptor to represent the set of monitored file descriptors, allowing for better scalability.
+`epoll` is a Linux-specific I/O multiplexing mechanism that is more efficient
+than `select` and `poll`. For Windows and MacOS, there are `iocp` and `kqueue`.
+`epoll` uses a file descriptor to represent the set of monitored file
+descriptors, allowing for better scalability.
 
 Let's look at how `epoll` is better than I/O multiplexing:
 
-1. In each call to `select`, the kernel has to copy the file descriptors from user space to kernel space, and on return. This is not needed in `epoll` as it uses a file descriptor to represent the set of monitored file descriptors.
-2. The kernel must check every file descriptor on each call to `select` and `poll` even though some of them are not ready. `epoll` only checks the file descriptors that are ready, which is more efficient.
-3. `epoll` supports edge-triggered I/O, which helps prevent file descriptor starvation.
+1.  In each call to `select`, the kernel has to copy the file descriptors from
+    user space to kernel space, and on return. This is not needed in `epoll` as
+    it uses a file descriptor to represent the set of monitored file
+    descriptors.
+2.  The kernel must check every file descriptor on each call to `select` and
+    `poll` even though some of them are not ready. `epoll` only checks the file
+    descriptors that are ready, which is more efficient.
+3.  `epoll` supports edge-triggered I/O, which helps prevent file descriptor
+    starvation.
 
 The flow of `epoll` is similar to `select`, but with some differences:
 
-1. Create an epoll instance using `epoll_create1()`.
-2. Add server sockets to the epoll instance using `epoll_ctl()`.
-3. Wait for events using `epoll_wait()`.
-    1. If we have a new connection, we need to add it to the epoll instance
-    2. Set the socket to non-blocking mode so that it does not block
-4. Handle events and process data.
+1.  Create an epoll instance using `epoll_create1()`.
+2.  Add server sockets to the epoll instance using `epoll_ctl()`.
+3.  Wait for events using `epoll_wait()`.
+    1.  If we have a new connection, we need to add it to the epoll instance
+    2.  Set the socket to non-blocking mode so that it does not block
+4.  Handle events and process data.
 
+Full code
+[here](https://github.com/bannnn511/code/blob/main/C/unix/socket/4.server_client_epoll/server.c).
 
-Full code [here](https://github.com/bannnn511/code/blob/main/C/unix/socket/4.server_client_epoll/server.c).
-
-```c
+``` c
 // setup servers
 
 int epfd, nfds, conn_soc;
@@ -177,4 +223,7 @@ epoll_ctl(epfd, EPOLL_CTL_ADD, socket_fd, &ev); // add socket to epoll instance
 
 ## Summary
 
-A concurrent server handles multiple clients simultaneously. A traditional concurrent server that uses multiple processes/threads to handle a high-load scenario may not be enough. We have to look at several methods, such as server pools, I/O multiplexing, and epoll.
+A concurrent server handles multiple clients simultaneously. A traditional
+concurrent server that uses multiple processes/threads to handle a high-load
+scenario may not be enough. We have to look at several methods, such as server
+pools, I/O multiplexing, and epoll.

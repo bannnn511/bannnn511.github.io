@@ -2,35 +2,75 @@
 
 ## What are we doing??
 
-We will add a system call to the XV6 kernel to understand how a user program can ask the kernel how to do a privilege operation. I will try to explain some basic concepts first and then show you the code. The source code for the XV6 kernel is [here](https://github.com/mit-pdos/xv6-public/tree/master).
+We will add a system call to the XV6 kernel to understand how a user program can
+ask the kernel how to do a privilege operation. I will try to explain some basic
+concepts first and then show you the code. The source code for the XV6 kernel is
+[here](https://github.com/mit-pdos/xv6-public/tree/master).
 
 ### Background
 
 ## What is a system call?
 
-To understand why we need a system call, we need to know about **limited direct execution (LDE).** Imagine a world without laws, everything will wreak havoc, traffic will be a nightmare to participate in, and everyone will want everything for themselves. It is the same for operating systems, user programs can use CPUs as long as they want without considering other programs. Without control, processes can take over the machine, accessing information that it is not allowed to access.
+To understand why we need a system call, we need to know about **limited direct
+execution (LDE).** Imagine a world without laws, everything will wreak havoc,
+traffic will be a nightmare to participate in, and everyone will want everything
+for themselves. It is the same for operating systems, user programs can use CPUs
+as long as they want without considering other programs. Without control,
+processes can take over the machine, accessing information that it is not
+allowed to access.
 
-Limited direct execution is the idea that user program can execute their code directly on the CPU while being “**limited**”. Limited means that the OS makes sure the program doesn’t do anything that we don’t want it to do which is **restricted operations**. Also when the process is running, the OS can stop user programs and switch to another process so that **resouces on a machine can be shared**. A system call is an interface that the OS provides us so that it can provide restricted operations.
+Limited direct execution is the idea that user program can execute their code
+directly on the CPU while being “**limited**”. Limited means that the OS makes
+sure the program doesn’t do anything that we don’t want it to do which is
+**restricted operations**. Also when the process is running, the OS can stop
+user programs and switch to another process so that **resouces on a machine can
+be shared**. A system call is an interface that the OS provides us so that it
+can provide restricted operations.
 
-A system call is the kernel's interface for a user program to access computer resources in a **restricted manner**. System calls likes `fork()`, `exec()`, `wait()`, `kill()` allow programs to create new processes, execute different programs, synchronize with child processes, and terminate processes. There are also I/O operations such as `open()`, `read()`, `write()`, `close().` In today's modern operating system, there are more than hundreds of system calls provided by the OS. With LDE, user programs are executed in **user mode**, when they want to access restricted resources such as (memory, I/O, etc), programs will use system calls to ask the kernel that runs in **kernel mode** to execute privilege operation on behalf of user programs.
+A system call is the kernel's interface for a user program to access computer
+resources in a **restricted manner**. System calls likes `fork()`, `exec()`,
+`wait()`, `kill()` allow programs to create new processes, execute different
+programs, synchronize with child processes, and terminate processes. There are
+also I/O operations such as `open()`, `read()`, `write()`, `close().` In today's
+modern operating system, there are more than hundreds of system calls provided
+by the OS. With LDE, user programs are executed in **user mode**, when they want
+to access restricted resources such as (memory, I/O, etc), programs will use
+system calls to ask the kernel that runs in **kernel mode** to execute privilege
+operation on behalf of user programs.
 
 ### What happens during a system call?
 
-When a user program makes a system call, it executes a **special trap instruction**. The instruction causes the processor to switch to the kernel (switch to kernel stack), raises the privilege level to kernel mode, and starts executing kernel instructions. Upon completion, the processor returns to user space, the hardware lowers its privilege level, switches back to the user stack, and resumes executing user instructions.
+When a user program makes a system call, it executes a **special trap
+instruction**. The instruction causes the processor to switch to the kernel
+(switch to kernel stack), raises the privilege level to kernel mode, and starts
+executing kernel instructions. Upon completion, the processor returns to user
+space, the hardware lowers its privilege level, switches back to the user stack,
+and resumes executing user instructions.
 
----
+--------------------------------------------------------------------------------
 
 ## The XV6 kernel code
 
-![kernel trap setup](https://substackcdn.com/image/fetch/w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F68f1d7a8-a551-4ce6-9704-92ffd47400fe_2667x1499.png)
+![kernel trap
+setup](https://substackcdn.com/image/fetch/w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F68f1d7a8-a551-4ce6-9704-92ffd47400fe_2667x1499.png)
 
-System calls are one of three cases when control must be transferred from a user program to the kernel, the others are exceptions and interrupts. Lots of processors handle these events by a single hardware mechanism, in this case, the source code of xv6 (there are so xv6-riscv) is built on x86 architecture which uses the `int` instruction to invoke an interrupt. **Use programs can invoke a system call by generating an interrupt using the** `int` **instruction**. An interrupt stops the loop of a processor and starts executing an **interrupt handler**. The hardware raises the privilege level and saves the user program’s registers in its kernel stack so that it can resume executing after returning to user programs.
+System calls are one of three cases when control must be transferred from a user
+program to the kernel, the others are exceptions and interrupts. Lots of
+processors handle these events by a single hardware mechanism, in this case, the
+source code of xv6 (there are so xv6-riscv) is built on x86 architecture which
+uses the `int` instruction to invoke an interrupt. **Use programs can invoke a
+system call by generating an interrupt using the** `int` **instruction**. An
+interrupt stops the loop of a processor and starts executing an **interrupt
+handler**. The hardware raises the privilege level and saves the user program’s
+registers in its kernel stack so that it can resume executing after returning to
+user programs.
 
-On the x86, interrupt handlers are defined in the **interrupt descriptor table (IDT)** which has 256 entries. System call is defined as the **64th entry**.
+On the x86, interrupt handlers are defined in the **interrupt descriptor table
+(IDT)** which has 256 entries. System call is defined as the **64th entry**.
 
 Let's look at how a user programs make a system call:
 
-```c
+``` c
 // FILE: usys.S
 #include "syscall.h"
 #include "traps.h"
@@ -67,15 +107,22 @@ SYSCALL(uptime)
 
 Let’s compile this code to see what it does
 
-https://substackcdn.com/image/fetch/w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F4fd8298c-c1c6-4ce7-b1d0-d9c74c6af57e_800x709.png[XV6 Kernel Source Code Visualization]
+[https://substackcdn.com/image/fetch/w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F4fd8298c-c1c6-4ce7-b1d0-d9c74c6af57e_800x709.png\[XV6](https://substackcdn.com/image/fetch/w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F4fd8298c-c1c6-4ce7-b1d0-d9c74c6af57e_800x709.png[XV6)
+Kernel Source Code Visualization\]
 
-As we can see for the `fork()` system calls, we will move the constant number 1 into the **%eax register**, then we will call the **int** instruction with 64 as the interrupt number for system calls, after executing the kernel will call `ret` which will handle the **return-from-trap**.
+As we can see for the `fork()` system calls, we will move the constant number 1
+into the **%eax register**, then we will call the **int** instruction with 64 as
+the interrupt number for system calls, after executing the kernel will call
+`ret` which will handle the **return-from-trap**.
 
 ### Setting up Trap Tables
 
-At the OS is booting up, it is running in kernel mode, so that it can configure the machine hardware. OS must tell the hardware what code to run on certain events such as system calls, traps, or interrupts (this blog will focus only on system calls). The OS must inform the hardware where the trap handler is.
+At the OS is booting up, it is running in kernel mode, so that it can configure
+the machine hardware. OS must tell the hardware what code to run on certain
+events such as system calls, traps, or interrupts (this blog will focus only on
+system calls). The OS must inform the hardware where the trap handler is.
 
-```c
+``` c
 // FILE: main.c
 int
 main(void)
@@ -88,7 +135,7 @@ main(void)
 
 In `main.c`, `tvinit` is where the trap table is set up.
 
-```c
+``` c
 // FILE: trap.c
 void
 tvinit(void)
@@ -103,17 +150,21 @@ tvinit(void)
 }
 ```
 
-```c
+``` c
 // These are arbitrarily chosen, but with care not to overlap
 // processor defined exceptions or interrupt vectors.
 #define T_SYSCALL       64      // system call
 ```
 
-`SETGATE()` macro is used to set the `IDT` array to the proper code to execute. What we want to look at is the `SETGATE` out of the loop. The value `vectors[T_SYSCALL]` is passed in, which means that it tells the hardware `vectors[T_SYSCALL`**]** is the trap handler for `IDT[T_SYSCALL]`.
+`SETGATE()` macro is used to set the `IDT` array to the proper code to execute.
+What we want to look at is the `SETGATE` out of the loop. The value
+`vectors[T_SYSCALL]` is passed in, which means that it tells the hardware
+`vectors[T_SYSCALL`**\]** is the trap handler for `IDT[T_SYSCALL]`.
 
-Let’s look at what is defined in `vectors.S` which can be compiled using Perl**.**
+Let’s look at what is defined in `vectors.S` which can be compiled using
+Perl\*\*.\*\*
 
-```perl
+``` perl
 perl vectors.pl > vectors.S
 # sample output:
 .globl vector64
@@ -122,27 +173,38 @@ vector64:
   jmp alltraps
 ```
 
-Some interrupts have error codes, system calls will push 0 as a dummy error code. As mentioned above, system calls, exceptions, and interrupts are handled by one hardware mechanism, that is why we need a dummy error code for system calls. Next, it will push an interrupt number which again for system calls will be 64. Finally, it will jump to `alltraps`.
+Some interrupts have error codes, system calls will push 0 as a dummy error
+code. As mentioned above, system calls, exceptions, and interrupts are handled
+by one hardware mechanism, that is why we need a dummy error code for system
+calls. Next, it will push an interrupt number which again for system calls will
+be 64. Finally, it will jump to `alltraps`.
 
 Current flow:
 
-1. initialize trap table
+1.  initialize trap table
 
-2. user program makes a system call ← **we are here**
+2.  user program makes a system call ← **we are here**
 
-   1. put the number of the system call we want to call in `%eax` register
+    1.  put the number of the system call we want to call in `%eax` register
 
-   2. invoke `int` with the interrupt number
+    2.  invoke `int` with the interrupt number
 
-3. hardware saves the needed registers and jumps to the C trap handler
+3.  hardware saves the needed registers and jumps to the C trap handler
 
-4. returns to the user program
+4.  returns to the user program
 
 ### Hardware Task to the C Trap handler
 
-Before going to the C Trap handler, the hardware will do several tasks that are hard for software to do by itself. Saving the current program counter `%eip` on the kernel stack (`%eip` will point to the next code to be executed in the user program), then it will save other registers such as `%eflags` (current status of the CPU, etc., interrupt flags, privilege level,…, the stack pointer.). These registers will be saved on the trapframe of the process. We can see what the hardware will save for us by looking at the `struct trapframe` in the file `x86.h`
+Before going to the C Trap handler, the hardware will do several tasks that are
+hard for software to do by itself. Saving the current program counter `%eip` on
+the kernel stack (`%eip` will point to the next code to be executed in the user
+program), then it will save other registers such as `%eflags` (current status of
+the CPU, etc., interrupt flags, privilege level,…, the stack pointer.). These
+registers will be saved on the trapframe of the process. We can see what the
+hardware will save for us by looking at the `struct trapframe` in the file
+`x86.h`
 
-```c
+``` c
 // FILE: x86.h
 struct trapframe {
   // registers as pushed by pusha
@@ -178,62 +240,70 @@ struct trapframe {
 
 After the interrupt handler is invoked, it will jump into `alltraps.`
 
-```
-#include "mmu.h"
+    #include "mmu.h"
 
-  # vectors.S sends all traps here.
-.globl alltraps
-alltraps:
-  # Build trap frame.
-  pushl %ds
-  pushl %es
-  pushl %fs
-  pushl %gs
-  pushal
+      # vectors.S sends all traps here.
+    .globl alltraps
+    alltraps:
+      # Build trap frame.
+      pushl %ds
+      pushl %es
+      pushl %fs
+      pushl %gs
+      pushal
 
-  # Set up data segments.
-  movw $(SEG_KDATA<<3), %ax
-  movw %ax, %ds
-  movw %ax, %es
+      # Set up data segments.
+      movw $(SEG_KDATA<<3), %ax
+      movw %ax, %ds
+      movw %ax, %es
 
-  # Call trap(tf), where tf=%esp
-  pushl %esp
-  call trap
-  addl $4, %esp
+      # Call trap(tf), where tf=%esp
+      pushl %esp
+      call trap
+      addl $4, %esp
 
-  # Return falls through to trapret...
-.globl trapret
-trapret:
-  popal
-  popl %gs
-  popl %fs
-  popl %es
-  popl %ds
-  addl $0x8, %esp  # trapno and errcode
-  iret
-```
+      # Return falls through to trapret...
+    .globl trapret
+    trapret:
+      popal
+      popl %gs
+      popl %fs
+      popl %es
+      popl %ds
+      addl $0x8, %esp  # trapno and errcode
+      iret
 
-`alltraps` will first push segment registers onto the stack (while xv6 uses paging as a mechanism for memory management, the kernel still needs segments), `pushall` will push all general-purpose registers. Then it will set up data segment for kernel operations. `pushl %esp` **pushes the current stack pointer onto the stack** which is all the things that we have pushed so far. Then we will jump the `trap()` function in C. When `trap()` returns, we will ignore its return value by moving the stack pointer just above it (same as popping off the stack). The code execution will fall through to the `trapret` beloved which is the **return-from-trap** that will restore our registers, lower the privilege level, and return us to the user program.
+`alltraps` will first push segment registers onto the stack (while xv6 uses
+paging as a mechanism for memory management, the kernel still needs segments),
+`pushall` will push all general-purpose registers. Then it will set up data
+segment for kernel operations. `pushl %esp` **pushes the current stack pointer
+onto the stack** which is all the things that we have pushed so far. Then we
+will jump the `trap()` function in C. When `trap()` returns, we will ignore its
+return value by moving the stack pointer just above it (same as popping off the
+stack). The code execution will fall through to the `trapret` beloved which is
+the **return-from-trap** that will restore our registers, lower the privilege
+level, and return us to the user program.
 
 Current flow:
 
-1. initialize trap table
+1.  initialize trap table
 
-2. user program makes a system call
+2.  user program makes a system call
 
-   1. put the number of the system call we want to call in `%eax` register
+    1.  put the number of the system call we want to call in `%eax` register
 
-   2. invoke `int` with the interrupt number
+    2.  invoke `int` with the interrupt number
 
-3. hardware saves the needed registers and jumps to the C trap handler ← **we are here**
+3.  hardware saves the needed registers and jumps to the C trap handler ← **we
+    are here**
 
-4. returns to the user program
+4.  returns to the user program
 
 ## The C Trap handler
 
 Let’s look at the trap() function:
 
-```c
+``` c
 void
 trap(struct trapframe *tf)
 {
@@ -250,11 +320,14 @@ trap(struct trapframe *tf)
 }
 ```
 
-As we see in the `alltraps`, we pushed the stack pointer onto the stack which is the trapframe argument for this function. This code is called upon interrupts, exceptions, and system calls and thus it checks if the `trapno` is for system calls. It saves the current trapframe and then jumps to `syscall()`.
+As we see in the `alltraps`, we pushed the stack pointer onto the stack which is
+the trapframe argument for this function. This code is called upon interrupts,
+exceptions, and system calls and thus it checks if the `trapno` is for system
+calls. It saves the current trapframe and then jumps to `syscall()`.
 
 Let’s look at the syscall function:
 
-```c
+``` c
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
 [SYS_exit]    sys_exit,
@@ -296,19 +369,26 @@ syscall(void)
 }
 ```
 
-Each system call has a number so that we know which will be revoked. **Remember that we push a constant number before into the** `%eax` **register before calling the** `int` **instruction in** `usys.h`. Now we retrieve that number from the trapframe so that we can call the corresponding system calls. The `%eax` register is also used for return values which is why we assign it back after we invoke the `syscalls`.
+Each system call has a number so that we know which will be revoked. **Remember
+that we push a constant number before into the** `%eax` **register before
+calling the** `int` **instruction in** `usys.h`. Now we retrieve that number
+from the trapframe so that we can call the corresponding system calls. The
+`%eax` register is also used for return values which is why we assign it back
+after we invoke the `syscalls`.
 
-With this, we are done with all we need to know about how system calls are handled. Now we will add a system call of our own.
+With this, we are done with all we need to know about how system calls are
+handled. Now we will add a system call of our own.
 
----
+--------------------------------------------------------------------------------
 
 ## Adding a System Call
 
-We will a system call `getreadcount` which will count how many times the `read` system call has been called`.`
+We will a system call `getreadcount` which will count how many times the `read`
+system call has been called`.`
 
 First, let’s add our system calls logic in `sysfile.c`
 
-```c
+``` c
 // FILE: sysfile.c
 
 int readcount = 0; // readcount will be incremented each time read() is called
@@ -349,7 +429,7 @@ sys_read(void)
 
 Next, we will define our system call number for `getreadcount`()
 
-```c
+``` c
 // FILE: syscall.h
 // System call numbers
 #define SYS_fork    1
@@ -377,9 +457,10 @@ Next, we will define our system call number for `getreadcount`()
 #define SYS_getreadcount 22
 ```
 
-In syscall.c, we will define an `extern` function so that the compiler will make it global, as well as add it into the `syscalls` array.
+In syscall.c, we will define an `extern` function so that the compiler will make
+it global, as well as add it into the `syscalls` array.
 
-```c
+``` c
 extern int sys_chdir(void);
 extern int sys_close(void);
 extern int sys_dup(void);
@@ -431,9 +512,12 @@ static int (*syscalls[])(void) = {
 };
 ```
 
-With this, we are done with adding code in kernel code. We expose this function to the user. In `user.h,` we define `getreadcount() s`o that users can call this function. We also add an entry in `usys.S`, this file will generate the stub for user programs to call or function.
+With this, we are done with adding code in kernel code. We expose this function
+to the user. In `user.h,` we define `getreadcount() s`o that users can call this
+function. We also add an entry in `usys.S`, this file will generate the stub for
+user programs to call or function.
 
-```c
+``` c
 // FILE user.h
 // system calls
 int fork(void);
@@ -461,7 +545,7 @@ int uptime(void);
 int getreadcount(void);
 ```
 
-```c
+``` c
 // FILE usys.S
 #include "syscall.h"
 #include "traps.h"
@@ -497,9 +581,11 @@ SYSCALL(uptime)
 SYSCALL(getreadcount)
 ```
 
-Now we can write a user program to test our system call. Define a C code file in the xv6 source code. You will need to update the `Makefile` so that this file will be compiled into xv6.
+Now we can write a user program to test our system call. Define a C code file in
+the xv6 source code. You will need to update the `Makefile` so that this file
+will be compiled into xv6.
 
-```c
+``` c
 // FILE test_1.c
 #include "types.h"
 #include "stat.h"
@@ -522,9 +608,11 @@ main(int argc, char *argv[]) {
 }
 ```
 
-Update the `UPROGS` in our xv6 Makefile. Then run `make qemu-nox`. Type `ls` to see all files, you should see **test_1**. Run **test_1** to see what it prints out.
+Update the `UPROGS` in our xv6 Makefile. Then run `make qemu-nox`. Type `ls` to
+see all files, you should see **test_1**. Run **test_1** to see what it prints
+out.
 
-```makefile
+``` makefile
 UPROGS=\
  _cat\
  _echo\
@@ -544,9 +632,10 @@ UPROGS=\
  _test_1\
 ```
 
-This concludes the first ever blog written by me. I hope I was able to deliver what I understand to you. If something is wrong, please leave a comment.
+This concludes the first ever blog written by me. I hope I was able to deliver
+what I understand to you. If something is wrong, please leave a comment.
 
----
+--------------------------------------------------------------------------------
 
 ## Resources, references
 
