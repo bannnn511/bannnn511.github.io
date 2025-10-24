@@ -1,0 +1,139 @@
+.flashcard-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 1rem;
+}
+
+.flashcard-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 2rem 0;
+  gap: 1rem;
+}
+
+.flashcard-controls button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  background: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.flashcard-controls button:hover {
+  background: #34495e;
+}
+
+.flashcard-controls button:disabled {
+  background: #95a5a6;
+  cursor: not-allowed;
+}
+
+#card-counter {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.flashcard-wrapper {
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  perspective: 1000px;
+}
+
+.flashcard {
+  position: absolute;
+  width: 100%;
+  min-height: 400px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.flashcard.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.flashcard-inner {
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  text-align: center;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  cursor: pointer;
+}
+
+.flashcard.flipped .flashcard-inner {
+  transform: rotateY(180deg);
+}
+
+.flashcard-front,
+.flashcard-back {
+  position: absolute;
+  width: 100%;
+  min-height: 400px;
+  backface-visibility: hidden;
+  border: 2px solid #2c3e50;
+  border-radius: 12px;
+  padding: 2rem;
+  background: white;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+  background: #ecf0f1;
+}
+
+.flashcard-content {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  color: #2c3e50;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.flip-hint {
+  font-size: 0.9rem;
+  color: #95a5a6;
+  margin-top: 1rem;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .flashcard-container {
+    padding: 0.5rem;
+  }
+
+  .flashcard-controls {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .flashcard-controls button {
+    width: 100%;
+  }
+
+  .flashcard-front,
+  .flashcard-back {
+    min-height: 300px;
+    padding: 1.5rem;
+  }
+
+  .flashcard-content {
+    font-size: 1rem;
+  }
+}

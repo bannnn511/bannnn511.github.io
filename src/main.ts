@@ -11,6 +11,8 @@ import {
   Post,
   PostList,
   Redirect,
+  FlashcardList,
+  FlashcardPage,
 } from "./templates.tsx";
 import { spell } from "./spell.ts";
 
@@ -181,6 +183,19 @@ async function build(params: {
     ctx.blogroll_ms = performance.now() - t_blogroll;
   }
 
+  // Build flashcards
+  const flashcard_sets = await collect_flashcards(ctx, params.filter);
+  await update_file(
+    "out/www/flashcards.html",
+    html_ugly(FlashcardList({ flashcard_sets })),
+  );
+  for (const flashcard_set of flashcard_sets) {
+    await update_file(
+      `out/www${flashcard_set.path}`,
+      html_ugly(FlashcardPage({ flashcard_set })),
+    );
+  }
+
   const pages = ["about", "resume", "links", "style"];
   for (const page of pages) {
     const text = await Deno.readTextFile(`content/${page}.md`);
@@ -284,6 +299,19 @@ export type Post = {
   summary: string;
 };
 
+export type Flashcard = {
+  question: string;
+  answer: string;
+};
+
+export type FlashcardSet = {
+  title: string;
+  slug: string;
+  path: string;
+  src: string;
+  cards: Flashcard[];
+};
+
 async function collect_posts(ctx: Ctx, filter: string): Promise<Post[]> {
   const start = performance.now();
   const posts = [];
@@ -372,6 +400,54 @@ async function collect_research_papers(ctx: Ctx, filter: string): Promise<Post[]
   papers.sort((l, r) => l.path < r.path ? 1 : -1);
   ctx.collect_ms = performance.now() - start;
   return papers;
+}
+
+async function collect_flashcards(ctx: Ctx, filter: string): Promise<FlashcardSet[]> {
+  const start = performance.now();
+  const flashcard_sets = [];
+  for await (const file_path of walk("./content/flash_cards/")) {
+    if (!file_path.endsWith(".md")) continue;
+    if (filter !== "") {
+      if (file_path.indexOf(filter) === -1) continue;
+    }
+    
+    const match = file_path.match(/^.*flash_cards\/(.*)\.md$/);
+    if (!match) continue;
+    const [, slug] = match;
+
+    const t = performance.now();
+    const text = await Deno.readTextFile(file_path);
+    ctx.read_ms += performance.now() - t;
+
+    // Parse flashcards from markdown
+    const lines = text.split('\n');
+    let title = '';
+    const cards: Flashcard[] = [];
+    
+    for (const line of lines) {
+      if (line.startsWith('# ')) {
+        title = line.substring(2).trim();
+      } else if (line.includes('==')) {
+        const [question, answer] = line.split('==').map(s => s.trim());
+        if (question && answer) {
+          cards.push({ question, answer });
+        }
+      }
+    }
+
+    if (!title) title = slug;
+
+    flashcard_sets.push({
+      title,
+      slug,
+      path: `/flashcards/${slug}.html`,
+      src: `/content/flash_cards/${slug}.md`,
+      cards,
+    });
+  }
+  flashcard_sets.sort((l, r) => l.title < r.title ? -1 : 1);
+  ctx.collect_ms += performance.now() - start;
+  return flashcard_sets;
 }
 
 async function* walk(root: string): AsyncIterableIterator<string> {

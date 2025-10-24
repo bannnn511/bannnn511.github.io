@@ -3,7 +3,7 @@
 /** @jsxFrag Fragment */
 // deno-lint-ignore-file no-explicit-any
 import { escapeHtml, h, Raw, render, VNode } from "./tsx.ts";
-import { Post as PostData } from "./main.ts";
+import { Post as PostData, FlashcardSet as FlashcardSetData } from "./main.ts";
 import { FeedEntry as FeedEntryData } from "./blogroll.ts";
 
 const site_url = "https://bannnn511.github.io";
@@ -184,6 +184,68 @@ export function BlogRoll({ posts }: { posts: FeedEntryData[] }) {
   {list_items}
   </ul>
   </Base>
+  );
+}
+
+export function FlashcardList({ flashcard_sets }: { flashcard_sets: FlashcardSetData[] }) {
+  const list_items = flashcard_sets.map((set) => (
+    <li>
+      <h2>
+        <a href={set.path}>{set.title}</a>
+      </h2>
+      <span class="meta">{set.cards.length} cards</span>
+    </li>
+  ));
+
+  return (
+    <Base path="/flashcards" title="Flashcards - AN HA" description="Study flashcards" src="/src/templates.tsx" extra_css="flashcards.css">
+      <h1>Flashcards</h1>
+      <ul class="post-list">
+        {list_items}
+      </ul>
+    </Base>
+  );
+}
+
+export function FlashcardPage({ flashcard_set }: { flashcard_set: FlashcardSetData }) {
+  return (
+    <Base
+      src={flashcard_set.src}
+      title={`${flashcard_set.title} - Flashcards`}
+      description={`Study ${flashcard_set.cards.length} flashcards about ${flashcard_set.title}`}
+      path={flashcard_set.path}
+      extra_css="flashcards.css"
+    >
+      <article class="flashcard-container">
+        <h1>{flashcard_set.title}</h1>
+        <div class="flashcard-controls">
+          <button type="button" id="prev-card">← Previous</button>
+          <span id="card-counter">1 / {flashcard_set.cards.length}</span>
+          <button type="button" id="next-card">Next →</button>
+        </div>
+        <div class="flashcard-wrapper">
+          {flashcard_set.cards.map((card, index) => (
+            <div class={`flashcard ${index === 0 ? 'active' : ''}`} data-index={index}>
+              <div class="flashcard-inner">
+                <div class="flashcard-front">
+                  <div class="flashcard-content">
+                    <Raw unsafe={card.question} />
+                  </div>
+                  <div class="flip-hint">Click to reveal answer</div>
+                </div>
+                <div class="flashcard-back">
+                  <div class="flashcard-content">
+                    <Raw unsafe={card.answer} />
+                  </div>
+                  <div class="flip-hint">Click to see question</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
+      <script src="/assets/flashcards.js"></script>
+    </Base>
   );
 }
 
