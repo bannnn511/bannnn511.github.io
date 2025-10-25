@@ -350,6 +350,52 @@ dfn, .small-caps { font-style: normal; font-variant: small-caps; }
   border-radius: 4px;
 }
 
+/* Callout blocks (Obsidian-style) */
+div.callout {
+  border-left: 4px solid #ff6b6b;
+  background-color: #fff5f5;
+  padding: 1em;
+  margin: 1em 0;
+  border-radius: 4px;
+}
+
+div.callout-pdf {
+  border-left-color: #ff6b6b;
+  background-color: #fff5f5;
+}
+
+div.callout-important {
+  border-left-color: #ff6b6b;
+  background-color: #fff5f5;
+}
+
+div.callout-title {
+  font-size: 0.85em;
+  color: rgba(0, 0, 0, 0.5);
+  font-weight: 600;
+  margin-bottom: 0.5em;
+  font-family: "JetBrains Mono", monospace;
+}
+
+div.callout > blockquote {
+  margin: 0.5em 0;
+  padding-left: 1em;
+  border-left: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+div.callout > blockquote > blockquote {
+  margin: 0.25em 0;
+  padding: 0.5em 1em;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-left: 2px solid rgba(0, 0, 0, 0.2);
+  font-style: italic;
+}
+
+div.callout p:last-child {
+  margin-bottom: 0;
+}
+
+
 /* Code blocks */
 pre {
   background-color: #f5f5f5;

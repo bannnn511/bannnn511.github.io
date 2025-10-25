@@ -197,8 +197,12 @@ function preprocessObsidian(source: string): string {
     const calloutContinueMatch = line.match(/^>\s*(.*)$/);
     if (inCallout && calloutContinueMatch) {
       const content = calloutContinueMatch[1];
-      if (content.startsWith('>') || content.trim() === '' && calloutQuote.length > 0) {
+      // If it's a nested blockquote (starts with >) or an empty line within quote section
+      if (content.startsWith('>') || (content.trim() === '' && calloutQuote.length > 0)) {
         calloutQuote.push(line);
+      } else if (content.trim() === '' && calloutQuote.length === 0) {
+        // Empty line before quotes start - skip it
+        continue;
       } else {
         calloutNotes.push(content);
       }
@@ -228,10 +232,11 @@ function preprocessObsidian(source: string): string {
 }
 
 function buildCalloutHTML(type: string, title: string, quote: string[], notes: string[]): string {
-  let md = `<div class="callout" markdown="1"> .callout-${type.toLowerCase()}}\n`;
-  if (title) md += `**${title}**\n\n`;
-  if (quote.length) md += `**PDF Quote:**\n\n${quote.join('\n')}\n\n`;
-  if (notes.length) md += `**Notes:**\n\n${notes.map(processWikilinks).join('\n')}\n\n`;
+  let md = `<div class="callout callout-${type.toLowerCase()}" markdown="1">\n\n`;
+  // Add page location if available
+  if (title) md += `<div class="callout-title">${title}</div>\n\n`;
+  if (quote.length) md += quote.join('\n') + '\n\n';
+  if (notes.length) md += notes.map(processWikilinks).join('\n') + '\n\n';
   md += '</div>\n';
   return md;
 }
