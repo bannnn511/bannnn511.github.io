@@ -15,6 +15,7 @@
     "@highlightjs/": "https://unpkg.com/@highlightjs/cdn-assets@11.6.0/es/",
     "@std/async/debounce": "https://raw.githubusercontent.com/denoland/std/refs/tags/release-2025.03.04/async/debounce.ts",
     "@rss": "https://raw.githubusercontent.com/MikaelPorttila/rss/refs/tags/1.0.3/mod.ts",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
     "jsr:@maxim-mazurok/sax-ts@1.2.13": "https://raw.githubusercontent.com/Maxim-Mazurok/sax-ts/refs/tags/v1.2.13/src/sax.ts",
   }
 }

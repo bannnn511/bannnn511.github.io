@@ -5,16 +5,20 @@ import * as blogroll from "./blogroll.ts";
 import {
   BlogRoll,
   feed_xml,
+  FlashcardList,
+  FlashcardPage,
   html_ugly,
   HtmlString,
   Page,
   Post,
   PostList,
   Redirect,
-  FlashcardList,
-  FlashcardPage,
 } from "./templates.tsx";
 import { spell } from "./spell.ts";
+
+const LLM_ENV_KEYS = ["GPT5_API_KEY", "OPENAI_API_KEY", "LLM_KEY"];
+
+ensureEnvKeys();
 
 async function main() {
   const params = {
@@ -121,7 +125,7 @@ class Ctx {
     public fmt_ms: number = 0,
     public blogroll_ms: number = 0,
     public total_ms: number = 0,
-  ) { }
+  ) {}
 }
 
 async function build(params: {
@@ -357,7 +361,10 @@ async function collect_posts(ctx: Ctx, filter: string): Promise<Post[]> {
   return posts;
 }
 
-async function collect_research_papers(ctx: Ctx, filter: string): Promise<Post[]> {
+async function collect_research_papers(
+  ctx: Ctx,
+  filter: string,
+): Promise<Post[]> {
   const start = performance.now();
   const papers = [];
   for await (const file_path of walk("./content/research-papers/")) {
@@ -402,7 +409,10 @@ async function collect_research_papers(ctx: Ctx, filter: string): Promise<Post[]
   return papers;
 }
 
-async function collect_flashcards(ctx: Ctx, filter: string): Promise<FlashcardSet[]> {
+async function collect_flashcards(
+  ctx: Ctx,
+  filter: string,
+): Promise<FlashcardSet[]> {
   const start = performance.now();
   const flashcard_sets = [];
   for await (const file_path of walk("./content/flash_cards/")) {
@@ -410,7 +420,7 @@ async function collect_flashcards(ctx: Ctx, filter: string): Promise<FlashcardSe
     if (filter !== "") {
       if (file_path.indexOf(filter) === -1) continue;
     }
-    
+
     const match = file_path.match(/^.*flash_cards\/(.*)\.md$/);
     if (!match) continue;
     const [, slug] = match;
@@ -420,15 +430,15 @@ async function collect_flashcards(ctx: Ctx, filter: string): Promise<FlashcardSe
     ctx.read_ms += performance.now() - t;
 
     // Parse flashcards from markdown
-    const lines = text.split('\n');
-    let title = '';
+    const lines = text.split("\n");
+    let title = "";
     const cards: Flashcard[] = [];
-    
+
     for (const line of lines) {
-      if (line.startsWith('# ')) {
+      if (line.startsWith("# ")) {
         title = line.substring(2).trim();
-      } else if (line.includes('==')) {
-        const [question, answer] = line.split('==').map(s => s.trim());
+      } else if (line.includes("==")) {
+        const [question, answer] = line.split("==").map((s) => s.trim());
         if (question && answer) {
           cards.push({ question, answer });
         }
@@ -462,3 +472,52 @@ async function* walk(root: string): AsyncIterableIterator<string> {
 }
 
 if (import.meta.main) await main();
+
+function ensureEnvKeys() {
+  if (LLM_ENV_KEYS.some((key) => (Deno.env.get(key) ?? "").trim().length > 0)) {
+    return;
+  }
+  try {
+    loadEnvFile(".env");
+  } catch (error) {
+    console.warn(
+      "LLM key not found in environment and .env failed to load:",
+      error,
+    );
+  }
+}
+
+function loadEnvFile(path: string) {
+  let contents: string;
+  try {
+    contents = Deno.readTextFileSync(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return;
+    throw error;
+  }
+
+  for (const rawLine of contents.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const sep = line.indexOf("=");
+    if (sep === -1) continue;
+
+    const key = line.slice(0, sep).trim();
+    if (!key) continue;
+
+    let value = line.slice(sep + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    value = value.replace(/\\n/g, "\n").replace(/\\r/g, "\r");
+    try {
+      Deno.env.set(key, value);
+    } catch {
+      // ignore if env is read-only
+    }
+  }
+}

@@ -3,7 +3,7 @@
 /** @jsxFrag Fragment */
 // deno-lint-ignore-file no-explicit-any
 import { escapeHtml, h, Raw, render, VNode } from "./tsx.ts";
-import { Post as PostData, FlashcardSet as FlashcardSetData } from "./main.ts";
+import { FlashcardSet as FlashcardSetData, Post as PostData } from "./main.ts";
 import { FeedEntry as FeedEntryData } from "./blogroll.ts";
 
 const site_url = "https://bannnn511.github.io";
@@ -83,11 +83,11 @@ function Base({ children, src, title, path, description, extra_css }: {
       <body>
         <header>
           <nav>
-          <a class="title" href="/">AN HA</a>
-          <a href="/about.html">About</a>
-          <a href="/research-papers.html">Research Papers</a>
-          <a href="/blogroll.html">Blogroll</a>
-          <a href="/links.html">Links</a>
+            <a class="title" href="/">AN HA</a>
+            <a href="/about.html">About</a>
+            <a href="/research-papers.html">Research Papers</a>
+            <a href="/blogroll.html">Blogroll</a>
+            <a href="/links.html">Links</a>
           </nav>
         </header>
 
@@ -97,7 +97,11 @@ function Base({ children, src, title, path, description, extra_css }: {
 
         <footer>
           <p>
-            Find Me: <a href="mailto:habinhan@proton.me">Mail</a> | <a href="https://www.linkedin.com/in/an-binh-ha-a68703138/">LinkedIn</a> | <a href="https://github.com/bannnn511">Github</a>
+            Find Me: <a href="mailto:habinhan@proton.me">Mail</a> |{" "}
+            <a href="https://www.linkedin.com/in/an-binh-ha-a68703138/">
+              LinkedIn
+            </a>{" "}
+            | <a href="https://github.com/bannnn511">Github</a>
           </p>
         </footer>
       </body>
@@ -121,12 +125,12 @@ export function Page(name: string, content: HtmlString) {
       description={blurb}
       src={`/content/${name}.md`}
       extra_css={name === "resume" ? "resume.css" : undefined}
-  >
+    >
       <article>
         <Raw unsafe={content.value} />
       </article>
-  </Base>
-);
+    </Base>
+  );
 }
 
 export function PostList({ posts }: { posts: PostData[] }) {
@@ -140,11 +144,11 @@ export function PostList({ posts }: { posts: PostData[] }) {
   ));
 
   return (
-  <Base path="" title="AN HA" description={blurb} src="/src/templates.tsx">
-  <ul class="post-list">
-  {list_items}
-  </ul>
-  </Base>
+    <Base path="" title="AN HA" description={blurb} src="/src/templates.tsx">
+      <ul class="post-list">
+        {list_items}
+      </ul>
+    </Base>
   );
 }
 
@@ -181,18 +185,20 @@ export function BlogRoll({ posts }: { posts: FeedEntryData[] }) {
   ));
 
   return (
-  <Base path="" title="AN HA" description={blurb} src="/src/templates.tsx">
-  <ul class="post-list">
-  {list_items}
-  </ul>
-  </Base>
+    <Base path="" title="AN HA" description={blurb} src="/src/templates.tsx">
+      <ul class="post-list">
+        {list_items}
+      </ul>
+    </Base>
   );
 }
 
-export function FlashcardList({ flashcard_sets }: { flashcard_sets: FlashcardSetData[] }) {
+export function FlashcardList(
+  { flashcard_sets }: { flashcard_sets: FlashcardSetData[] },
+) {
   // Shuffle the flashcard sets
   const shuffled = [...flashcard_sets].sort(() => Math.random() - 0.5);
-  
+
   const list_items = shuffled.map((set) => (
     <li>
       <h2>
@@ -203,7 +209,13 @@ export function FlashcardList({ flashcard_sets }: { flashcard_sets: FlashcardSet
   ));
 
   return (
-    <Base path="/flashcards" title="Flashcards - AN HA" description="Study flashcards" src="/src/templates.tsx" extra_css="flashcards.css">
+    <Base
+      path="/flashcards"
+      title="Flashcards - AN HA"
+      description="Study flashcards"
+      src="/src/templates.tsx"
+      extra_css="flashcards.css"
+    >
       <h1>Flashcards</h1>
       <ul class="post-list">
         {list_items}
@@ -212,7 +224,20 @@ export function FlashcardList({ flashcard_sets }: { flashcard_sets: FlashcardSet
   );
 }
 
-export function FlashcardPage({ flashcard_set }: { flashcard_set: FlashcardSetData }) {
+export function FlashcardPage(
+  { flashcard_set }: { flashcard_set: FlashcardSetData },
+) {
+  const getEnv = (key: string, fallback = "") =>
+    Deno.env.get(key)?.trim() ?? fallback;
+  const gptKey = getEnv("GPT5_API_KEY");
+  const defaultModel = "gpt-5-mini";
+  const gptModel = getEnv("GPT5_MODEL") || defaultModel;
+  const gptEndpoint = getEnv(
+    "GPT5_ENDPOINT",
+    "https://api.openai.com/v1/chat/completions",
+  );
+  const gptEnabled = gptKey.length > 0;
+
   return (
     <Base
       src={flashcard_set.src}
@@ -221,13 +246,22 @@ export function FlashcardPage({ flashcard_set }: { flashcard_set: FlashcardSetDa
       path={flashcard_set.path}
       extra_css="flashcards.css"
     >
-      <article class="flashcard-container">
+      <article
+        class="flashcard-container"
+        data-gpt-enabled={gptEnabled ? "true" : "false"}
+      >
         <h1>{flashcard_set.title}</h1>
         <div class="flashcard-controls">
           <button type="button" id="prev-card">← Previous</button>
           <span id="card-counter">1 / {flashcard_set.cards.length}</span>
           <button type="button" id="next-card">Next →</button>
         </div>
+        {!gptEnabled && (
+          <p class="flashcard-hint">
+            Answers are checked with an exact text match. Define GPT5_API_KEY to
+            enable AI grading.
+          </p>
+        )}
         <div class="flashcard-wrapper">
           {flashcard_set.cards.map((card, index) => (
             <div class="flashcard" data-index={index}>
@@ -236,19 +270,67 @@ export function FlashcardPage({ flashcard_set }: { flashcard_set: FlashcardSetDa
                   <div class="flashcard-content">
                     <Raw unsafe={card.question} />
                   </div>
-                  <div class="flip-hint">Click to reveal answer</div>
+                  <form class="answer-form" data-card-index={index}>
+                    <label class="answer-label">
+                      <span>Your answer</span>
+                      <textarea
+                        name="user-answer"
+                        rows={3}
+                        placeholder="Type your answer, then choose Check"
+                        defaultValue=""
+                      >
+                      </textarea>
+                    </label>
+                    <div class="answer-actions">
+                      <button
+                        type="button"
+                        class={`check-answer${gptEnabled ? " use-llm" : ""}`}
+                        data-action="check"
+                        data-grading={gptEnabled ? "llm" : "simple"}
+                      >
+                        {gptEnabled ? "Check with AI" : "Check Answer"}
+                      </button>
+                      <button
+                        type="button"
+                        class="show-answer"
+                        data-action="reveal"
+                      >
+                        Reveal Answer
+                      </button>
+                    </div>
+                    <div class="answer-feedback" role="status"></div>
+                  </form>
                 </div>
                 <div class="flashcard-back">
                   <div class="flashcard-content">
                     <Raw unsafe={card.answer} />
                   </div>
-                  <div class="flip-hint">Click to see question</div>
+                  <div class="back-actions">
+                    <button
+                      type="button"
+                      class="hide-answer"
+                      data-action="hide"
+                    >
+                      Back to Question
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
       </article>
+      {gptEnabled && (
+        <script type="application/json" id="flashcard-config">
+          <Raw
+            unsafe={JSON.stringify({
+              endpoint: gptEndpoint,
+              model: gptModel,
+              apiKey: gptKey,
+            })}
+          />
+        </script>
+      )}
       <script src="/assets/flashcards.js"></script>
     </Base>
   );
