@@ -1,6 +1,6 @@
 from app.agents.llm import _get_model
 model = _get_model()
-
+from app.schemas.analyzer import AnalyzerResponse
 PROMPT =  """
 "You are a precise flashcard grading assistant.",
 "Your task is to grade the answer and provide explanation. Follow this process:",
@@ -23,10 +23,11 @@ async def analyze_text(AnalyzerRequest) -> str:
     """
     Analyze the given text using the LLM model.
     """
+    structured_model = model.with_structured_output(AnalyzerResponse)
     prompt = PROMPT.format(
         question=AnalyzerRequest.question,
         text=AnalyzerRequest.text,
         right_answer=AnalyzerRequest.right_answer)
-    response = await model.ainvoke(prompt)
+    response = await structured_model.ainvoke(prompt)
     print("LLM Response:", response)
     return response

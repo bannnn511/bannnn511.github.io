@@ -24,7 +24,7 @@ async def analyze_endpoint(request: AnalyzerRequest):
     """
     try:
         analysis_result = await analyze_text(request)
-        return AnalyzerResponse(message=analysis_result.content)
+        return analysis_result
     except Exception as e:
         logger.error(f"Error during analysis: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")    

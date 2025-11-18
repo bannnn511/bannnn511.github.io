@@ -9,4 +9,5 @@ class AnalyzerRequest(BaseModel):
     right_answer: Optional[str] = Field(None, description="The correct answer for comparison")
 
 class AnalyzerResponse(BaseModel):
-    message: str = Field(..., description="Analysis result message")
+    score: Optional[int] = Field(None, description="Score awarded to the answer")
+    corrected_knowledge: Optional[str] = Field(None, description="Corrected or aligned knowledge")
