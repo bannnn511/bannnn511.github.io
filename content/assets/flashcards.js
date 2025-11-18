@@ -264,7 +264,7 @@
           config,
         });
 
-        feedback.textContent = result.message;
+        feedback.textContent = composeFeedbackMessage(result);
         feedback.classList.remove("success", "partial", "failure", "error");
         feedback.classList.add(result.status);
         card.classList.add("flipped");
@@ -279,6 +279,26 @@
         button.disabled = false;
         button.textContent = originalLabel;
       }
+    }
+
+    function composeFeedbackMessage(result) {
+      const parts = [];
+      if (result.message) {
+        parts.push(result.message);
+      }
+      if (
+        Array.isArray(result.missing) && result.missing.length > 0 &&
+        result.status !== "success"
+      ) {
+        parts.push(`Missing: ${result.missing.join(", ")}`);
+      }
+      if (result.vague && result.status !== "success") {
+        parts.push("Answer felt vague—add concrete details or examples.");
+      }
+      if (parts.length === 0) {
+        return "Answer recorded.";
+      }
+      return parts.join(" ");
     }
 
     async function gradeAnswer({ question, expected, userAnswer, config }) {
@@ -300,7 +320,7 @@
         }
 
         return evaluation;
-      } catch (error) {
+      } catch (_error) {
         return fallback;
       }
     }
@@ -329,14 +349,95 @@
       .trim();
   }
 
+  const STOPWORDS = new Set([
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "for",
+    "from",
+    "if",
+    "in",
+    "into",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "the",
+    "to",
+    "with",
+    "you",
+    "your",
+    "this",
+    "that",
+    "these",
+    "those",
+    "their",
+    "our",
+    "we",
+    "they",
+  ]);
+
+  function extractKeywords(text) {
+    if (!text) return [];
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((token) => token.length > 2 && !STOPWORDS.has(token));
+  }
+
+  function findMissingKeywords(expected, userAnswer) {
+    const expectedKeywords = Array.from(new Set(extractKeywords(expected)));
+    const userKeywords = new Set(extractKeywords(userAnswer));
+    const missing = expectedKeywords.filter((keyword) =>
+      !userKeywords.has(
+        keyword,
+      )
+    );
+    return missing.slice(0, 4);
+  }
+
+  function detectVagueness(userAnswer, expected) {
+    const trimmed = (userAnswer || "").trim();
+    if (!trimmed) return true;
+
+    const lower = trimmed.toLowerCase();
+    const vagueRegex =
+      /\b(?:something|stuff|things?|maybe|kind[ao]|sort[ao]|somewhat|whatever|etc\.?)\b/;
+    if (vagueRegex.test(lower)) {
+      return true;
+    }
+
+    const tokens = trimmed.split(/\s+/);
+    if (tokens.length === 1) {
+      const expectedKeywords = new Set(extractKeywords(expected));
+      const token = tokens[0].toLowerCase();
+      if (!expectedKeywords.has(token)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   function simpleCompare(userAnswer, expected) {
     const normalizedUser = normalizeText(userAnswer);
     const normalizedExpected = normalizeText(expected);
+    const missingKeywords = findMissingKeywords(expected, userAnswer);
+    const vague = detectVagueness(userAnswer, expected);
 
     if (normalizedUser && normalizedUser === normalizedExpected) {
       return {
         status: "success",
         message: "Correct! Nice work.",
+        missing: [],
+        vague: false,
       };
     }
 
@@ -348,12 +449,16 @@
       return {
         status: "partial",
         message: "Close! Review the full answer for more detail.",
+        missing: missingKeywords,
+        vague,
       };
     }
 
     return {
       status: "failure",
       message: "Not quite. Reveal the answer to review.",
+      missing: missingKeywords,
+      vague,
     };
   }
 
@@ -376,8 +481,15 @@
         messages: [
           {
             role: "system",
-            content:
-              'You are a precise flashcard grading assistant performing semantic answer grading. Assess whether the learner answer conveys the SAME meaning as the reference answer using conceptual understanding, paraphrase recognition, synonym handling, and domain reasoning (CS, medical, math, etc.). Detect partial answers when key ideas are missing and flag vague or incomplete wording. Respond ONLY with compact JSON (no code fences, no extra text) shaped exactly as {"result":"correct"|"partial"|"incorrect","reason":"short explanation"} where "reason" highlights the most important justification in under 20 words.',
+            content: [
+              "You are a precise flashcard grading assistant.",
+              "Follow this process:",
+              "1. Interpret the question and reference answer to identify the core concepts using domain reasoning (CS, medical, math, etc.).",
+              "2. Compare the learner answer's meaning against the reference using conceptual understanding, paraphrase recognition, and synonym handling.",
+              "3. Detect missing or incorrect core ideas. Award partial credit when some—but not all—key concepts are present.",
+              "4. Flag vague or hedged language that fails to supply concrete details.",
+              'Respond ONLY with JSON (no code fences, no extra text) shaped exactly as {"result":"correct"|"partial"|"incorrect","reason":"short <20 word justification","missing":["concept1",...],"vague":true|false}. Set "missing" to [] when nothing important is absent and always set "vague" to false for fully precise answers.',
+            ].join("\n"),
           },
           {
             role: "user",
@@ -426,11 +538,23 @@
       typeof result.reason === "string" && result.reason.trim().length > 0
         ? result.reason.trim()
         : null;
+    const missing = Array.isArray(result.missing)
+      ? Array.from(
+        new Set(
+          result.missing
+            .map((item) => typeof item === "string" ? item.trim() : "")
+            .filter((item) => item.length > 0),
+        ),
+      ).slice(0, 4)
+      : [];
+    const vague = result.vague === true;
 
     if (outcome === "correct") {
       return {
         status: "success",
         message: reason || "Correct! Nice work.",
+        missing: [],
+        vague: false,
       };
     }
 
@@ -438,6 +562,8 @@
       return {
         status: "partial",
         message: reason || "Almost there. Compare with the reference answer.",
+        missing,
+        vague,
       };
     }
 
@@ -445,6 +571,8 @@
       return {
         status: "failure",
         message: reason || "Not quite. Review the reference answer.",
+        missing,
+        vague,
       };
     }
 
