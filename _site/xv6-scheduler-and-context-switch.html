@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  <meta charset="UTF-8">
+
+  <link rel="canonical" href="http://localhost:4000/xv6-scheduler-and-context-switch" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="description" content="Hacking the xv6 kernel scheduling algorithm">
+
+  <meta property="og:site_name" content="AN HA">
+
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
+
+  <link rel="stylesheet" href="/styles.css">
+
+  
+  <meta property="og:description" content="Hacking the xv6 kernel scheduling algorithm"/>
+  
+
+  
+  <meta property="og:title" content="xv6 scheduler and context switch">
+  <meta property="og:type" content="article">
+  
+
+  
+  <meta property="article:published_time" content="2024-09-14T00:00:00+07:00">
+  <meta property="article:author" content="http://localhost:4000/">
+  
+
+  <meta property="og:url" content="http://localhost:4000/xv6-scheduler-and-context-switch" />
+
+  
+
+  <title>
+    
+      xv6 scheduler and context switch &mdash; AN HA
+    
+  </title>
+</head>
+
+  <body>
+    <nav><div class="site-nav">
+    <a class="internal-link" href="/"><b>AN HA</b></a>
+    <a class="internal-link nav-item" href="/research-papers">Research Papers</a>
+</div>
+
+<style>
+  .site-nav {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  
+  .nav-item {
+    font-size: 0.9em;
+  }
+</style></nav>
+    <div class="wrapper">
+      <main><article>
+    <div>
+        <h1>xv6 scheduler and context switch</h1>
+        <time datetime="2024-09-17T22:05:48+07:00"
+            > Last updated on September 17, 2024 
+        </time>
+    </div>
+
+    <div id="notes-entry-container">
+    <!-- <div> -->
+        <content>
+            <html><body>
+<h1 id="hacking-the-xv6-kernel-scheduling-algorithm">Hacking the xv6 kernel scheduling algorithm</h1>
+
+<p>We will explore the xv6 kernel scheduling algorithm as well as the context switch mechanism.</p>
+<blockquote>
+  <p>The source code for xv6 kernel is <a href="https://github.com/mit-pdos/xv6-public/tree/master" target="_blank">here</a>.</p>
+
+  <p>I will not cover everything in this post, if you want to learn more, checkout those amazing references and resources at the end. This post covers context switch in term of timer-interrupts only, other cases may be for future blog posts.</p>
+</blockquote>
+
+<h1 id="background">Background</h1>
+
+<h2 id="scheduling">Scheduling</h2>
+
+<p>In the previous blog about <a class="internal-link" href="/adding-a-system-call-to-xv6">Adding a system call to XV6</a>, we know that user programs are executed in a <strong>restricted</strong> manner. We know how the kernel provides a mechanism called system call for user that wants to access privilege resources on the hardware. The abstraction of process also gives our programs an illusion that we alone are using the hardware computing resources. The truth is most of us who studies computer science knows that, the kernel runs our processes by run one process, stop it and start running another repeatedly. This is called <strong>time-sharing</strong>. Time-sharing allows limited hardware resources to be shared among many processes, each process is given a small slice of processing time to execute their task.</p>
+
+<blockquote>
+  <p>Imagine this scenario, if we have only 1 CPU(1 core) on our machine, <strong>if a user process is using the CPU which means that the kernel is not running</strong>. How can the OS takes back control of the CPU from the user program?</p>
+
+  <p>If you are using a programming language like Go that implements concurrency using user thread, how does the Go runtime take back control from other Go routines?</p>
+</blockquote>
+
+<p>In the context of <strong>limited direct execution</strong>, time-sharing allows the kernel to control how long user programs can run. By periodically forces user programs to give back the CPU to the controller, user programs can not uses resource forever. By giving the control back to the kernel, the kernel’s scheduler can decide which processes to run. The scheduling algorithm is the kernel <strong>policy</strong> to decide which processes to run.</p>
+
+<h2 id="multiplexing-processes-onto-hardware-processor">Multiplexing processes onto hardware processor</h2>
+
+<p>There are 2 cases when the kernel will switch from one process to another:</p>
+
+<ol>
+  <li>OS periodically forces a switch when a process is executing in user space to the kernel space. This is called a <strong>timer-interrupt</strong>. In the previous blog post about <a class="internal-link" href="/adding-a-system-call-to-xv6">Adding a system call to XV6</a>, we knows that when a system call is invoked, the user program must issue an interrupt instruction to transition to the kernel, <strong>the timer-interrupt is handled by the same mechanism</strong>. We will explore this later on in the xv6 kernel code.</li>
+  <li>When processes have to wait for device or pipe I/O to complete, when parent process waits for a child process to exit or the <code class="language-plaintext highlighter-rouge">sleep</code>  system call.</li>
+</ol>
+
+<h2 id="context-switch">Context Switch</h2>
+
+<p>When the OS wants to stop one process to run another, it must save the context of currently running process. The kernel must save the old thread’s CPU registers and restore the saved register of the new thread. For example, the kernel will save <code class="language-plaintext highlighter-rouge">%eip</code> (point to next instruction) so that when it switches back, it will know which instruction to continue execute.</p>
+
+<p><img src="/assets/switching-between-user-process.png" alt="Switching between user processes"></p>
+
+<p>Context switching from one user process to another user process involves:</p>
+
+<ol>
+  <li>Transition from user space to kernel space by a system call (by calling the <code class="language-plaintext highlighter-rouge">int</code> instruction), by interrupt.</li>
+  <li>From the A kernel thread, it will context switch to the CPU’s scheduler thread. From here, the scheduler will make decision about which process to (in this case it will be B)</li>
+  <li>a context switch to the B’s kernel thread</li>
+  <li>return to process B’s user space</li>
+</ol>
+
+<p>Now, let’s dive into the code for context switch.</p>
+
+<hr>
+
+<h1 id="the-code">The code</h1>
+
+<h2 id="states-of-os">States of OS</h2>
+
+<p>Before I show you the code of those context switch step above, let’s look at some important data structure in the kernel.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: proc.c</span>
+<span class="k">struct</span> <span class="p">{</span>
+  <span class="k">struct</span> <span class="n">spinlock</span> <span class="n">lock</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">proc</span> <span class="n">proc</span><span class="p">[</span><span class="n">NPROC</span><span class="p">];</span>
+<span class="p">}</span> <span class="n">ptable</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">ptable</code> is the process list shared by all processors. Because of this, if we want to change the state of process we will need acquire a lock. We can see that the limit of our processes is <code class="language-plaintext highlighter-rouge">NPROC</code> which is 64. Here is the data structure of a process:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: proc.h</span>
+
+<span class="k">struct</span> <span class="n">context</span> <span class="p">{</span>
+  <span class="n">uint</span> <span class="n">edi</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">esi</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">ebx</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">ebp</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">eip</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">enum</span> <span class="n">procstate</span> <span class="p">{</span> <span class="n">UNUSED</span><span class="p">,</span> <span class="n">EMBRYO</span><span class="p">,</span> <span class="n">SLEEPING</span><span class="p">,</span> <span class="n">RUNNABLE</span><span class="p">,</span> <span class="n">RUNNING</span><span class="p">,</span> <span class="n">ZOMBIE</span> <span class="p">};</span>
+
+<span class="c1">// Per-process state</span>
+<span class="k">struct</span> <span class="n">proc</span> <span class="p">{</span>
+  <span class="n">uint</span> <span class="n">sz</span><span class="p">;</span>                     <span class="c1">// Size of process memory (bytes)</span>
+  <span class="n">pde_t</span><span class="o">*</span> <span class="n">pgdir</span><span class="p">;</span>                <span class="c1">// Page table</span>
+  <span class="kt">char</span> <span class="o">*</span><span class="n">kstack</span><span class="p">;</span>                <span class="c1">// Bottom of kernel stack for this process</span>
+  <span class="k">enum</span> <span class="n">procstate</span> <span class="n">state</span><span class="p">;</span>        <span class="c1">// Process state</span>
+  <span class="kt">int</span> <span class="n">pid</span><span class="p">;</span>                     <span class="c1">// Process ID</span>
+  <span class="k">struct</span> <span class="n">proc</span> <span class="o">*</span><span class="n">parent</span><span class="p">;</span>         <span class="c1">// Parent process</span>
+  <span class="k">struct</span> <span class="n">trapframe</span> <span class="o">*</span><span class="n">tf</span><span class="p">;</span>        <span class="c1">// Trap frame for current syscall</span>
+  <span class="k">struct</span> <span class="n">context</span> <span class="o">*</span><span class="n">context</span><span class="p">;</span>     <span class="c1">// swtch() here to run process</span>
+  <span class="kt">void</span> <span class="o">*</span><span class="n">chan</span><span class="p">;</span>                  <span class="c1">// If non-zero, sleeping on chan</span>
+  <span class="kt">int</span> <span class="n">killed</span><span class="p">;</span>                  <span class="c1">// If non-zero, have been killed</span>
+  <span class="k">struct</span> <span class="n">file</span> <span class="o">*</span><span class="n">ofile</span><span class="p">[</span><span class="n">NOFILE</span><span class="p">];</span>  <span class="c1">// Open files</span>
+  <span class="k">struct</span> <span class="n">inode</span> <span class="o">*</span><span class="n">cwd</span><span class="p">;</span>           <span class="c1">// Current directory</span>
+  <span class="kt">char</span> <span class="n">name</span><span class="p">[</span><span class="mi">16</span><span class="p">];</span>               <span class="c1">// Process name (debugging)</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<ul>
+  <li>
+<code class="language-plaintext highlighter-rouge">pgdir</code> is our page table which I will make another blog post.</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">kstack</code> is the process’s kernel stack. In order for kernel to execute when process transition from user space to kernel space is that each process shares a part of their address space with the kernel. What this means is that the kernel <code class="language-plaintext highlighter-rouge">code</code> and <code class="language-plaintext highlighter-rouge">data</code> section exists in every process and is pointed to the same physical location in the memory. With this setup, when the process transition from user space to kernel space, kernel code can be executed.</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">state</code> presents the state of our process. <code class="language-plaintext highlighter-rouge">RUNNABLE</code> is when our process can be run and it is waiting for the CPU to run. <code class="language-plaintext highlighter-rouge">RUNNING</code> is when it is being executed.</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">trapframe</code> as discussed in the previous blog post will be used when the hardware jump to the trap handler.</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">context</code> is the state of the process that needs to be saved during a context switch. You can see the <code class="language-plaintext highlighter-rouge">%eip</code> register in here, which proves that during a context switch, the OS will execute our code at a difference location.</li>
+</ul>
+
+<h2 id="the-timer-interrupt">The Timer-interrupt</h2>
+
+<p>Timer interrupt is a kind of trap that the hardware will trigger every X ms. The OS will tell the hardware to find the timer interrupt handler when it is booted. Let’s look at the previous C trap handler</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: trap.c</span>
+<span class="kt">void</span> <span class="nf">trap</span><span class="p">(</span><span class="k">struct</span> <span class="n">trapframe</span> <span class="o">*</span><span class="n">tf</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="k">switch</span> <span class="p">(</span><span class="n">tf</span><span class="o">-&gt;</span><span class="n">trapno</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">case</span> <span class="n">T_IRQ0</span> <span class="o">+</span> <span class="n">IRQ_TIMER</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">cpuid</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">acquire</span><span class="p">(</span><span class="o">&amp;</span><span class="n">tickslock</span><span class="p">);</span>
+                <span class="n">ticks</span><span class="o">++</span><span class="p">;</span>
+                <span class="n">wakeup</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ticks</span><span class="p">);</span>
+                <span class="n">release</span><span class="p">(</span><span class="o">&amp;</span><span class="n">tickslock</span><span class="p">);</span>
+            <span class="p">}</span>
+            <span class="n">lapiceoi</span><span class="p">();</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="c1">// ...</span>
+    <span class="p">}</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>At the first switch case, we can find the trap number for timer interrupts, it will update the ticks count and wakeup any process that is waiting for the next ticks . It will only update the ticks count for the first CPU because <strong>each CPU has its own timer and interrupt</strong> and these timers may not be synchronized. <code class="language-plaintext highlighter-rouge">lapiceoi()</code> will acknowledge the local interrupt so that it can ready for next interrupts. The important code is further down in this function.</p>
+
+<blockquote>
+  <p>I may cover <code class="language-plaintext highlighter-rouge">sleep</code> and <code class="language-plaintext highlighter-rouge">wakeup</code> in future blog post</p>
+</blockquote>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: trap.c</span>
+
+<span class="kt">void</span> <span class="nf">trap</span><span class="p">(</span><span class="k">struct</span> <span class="n">trapframe</span> <span class="o">*</span><span class="n">tf</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">myproc</span><span class="p">()</span> <span class="o">&amp;&amp;</span> <span class="n">myproc</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">==</span> <span class="n">RUNNING</span> <span class="o">&amp;&amp;</span>
+            <span class="n">tf</span><span class="o">-&gt;</span><span class="n">trapno</span> <span class="o">==</span> <span class="n">T_IRQ0</span> <span class="o">+</span> <span class="n">IRQ_TIMER</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">yield</span><span class="p">();</span>
+    <span class="p">}</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>This code will check if our process is running and if the trap number is our timer interrupt. If it is, we will call <code class="language-plaintext highlighter-rouge">yield</code> to give up the CPU. Let’s look at the code in <code class="language-plaintext highlighter-rouge">yield</code>:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: proc.c</span>
+<span class="c1">// Give up the CPU for one scheduling round.</span>
+<span class="kt">void</span>
+<span class="nf">yield</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="n">acquire</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptable</span><span class="p">.</span><span class="n">lock</span><span class="p">);</span>  <span class="c1">//DOC: yieldlock</span>
+  <span class="n">myproc</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">=</span> <span class="n">RUNNABLE</span><span class="p">;</span>
+  <span class="n">sched</span><span class="p">();</span>
+  <span class="n">release</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptable</span><span class="p">.</span><span class="n">lock</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>What <code class="language-plaintext highlighter-rouge">yield</code> does is that it set the current process state to <code class="language-plaintext highlighter-rouge">RUNNABLE</code> , because the process list is shared by multiple CPUs that is why we need to acquire the <code class="language-plaintext highlighter-rouge">ptable.lock</code>  before we can change the state. Next we will go and see what <code class="language-plaintext highlighter-rouge">sched</code> does.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: proc.c</span>
+
+<span class="kt">void</span>
+<span class="nf">sched</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="kt">int</span> <span class="n">intena</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">proc</span> <span class="o">*</span><span class="n">p</span> <span class="o">=</span> <span class="n">myproc</span><span class="p">();</span>
+
+  <span class="k">if</span><span class="p">(</span><span class="o">!</span><span class="n">holding</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptable</span><span class="p">.</span><span class="n">lock</span><span class="p">))</span>
+    <span class="n">panic</span><span class="p">(</span><span class="s">"sched ptable.lock"</span><span class="p">);</span>
+  <span class="k">if</span><span class="p">(</span><span class="n">mycpu</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">ncli</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">panic</span><span class="p">(</span><span class="s">"sched locks"</span><span class="p">);</span>
+  <span class="k">if</span><span class="p">(</span><span class="n">p</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">==</span> <span class="n">RUNNING</span><span class="p">)</span>
+    <span class="n">panic</span><span class="p">(</span><span class="s">"sched running"</span><span class="p">);</span> 
+  <span class="k">if</span><span class="p">(</span><span class="n">readeflags</span><span class="p">()</span><span class="o">&amp;</span><span class="n">FL_IF</span><span class="p">)</span>
+    <span class="n">panic</span><span class="p">(</span><span class="s">"sched interruptible"</span><span class="p">);</span>
+  <span class="n">intena</span> <span class="o">=</span> <span class="n">mycpu</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">intena</span><span class="p">;</span>
+  <span class="n">swtch</span><span class="p">(</span><span class="o">&amp;</span><span class="n">p</span><span class="o">-&gt;</span><span class="n">context</span><span class="p">,</span> <span class="n">mycpu</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">scheduler</span><span class="p">);</span>
+  <span class="n">mycpu</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">intena</span> <span class="o">=</span> <span class="n">intena</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">sched</code> will make sure that we can go into the scheduler safely.
+Some conditions, we can already understand is that, we must hold the <code class="language-plaintext highlighter-rouge">ptable.lock</code>, the process state must be <code class="language-plaintext highlighter-rouge">RUNNING</code>. <code class="language-plaintext highlighter-rouge">switch</code> is where the context switch happens. It will save the current process context and switch to the context of the CPU’s scheduler.</p>
+
+<div class="language-s highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Context switch</span><span class="w">
+</span><span class="c1">#</span><span class="w">
+</span><span class="c1">#   void swtch(struct context **old, struct context *new);</span><span class="w">
+</span><span class="c1"># </span><span class="w">
+</span><span class="c1"># Save the current registers on the stack, creating</span><span class="w">
+</span><span class="c1"># a struct context, and save its address in *old.</span><span class="w">
+</span><span class="c1"># Switch stacks to new and pop previously-saved registers.</span><span class="w">
+
+</span><span class="n">.globl</span><span class="w"> </span><span class="n">swtch</span><span class="w">
+</span><span class="n">swtch</span><span class="o">:</span><span class="w">
+  </span><span class="n">movl</span><span class="w"> </span><span class="m">4</span><span class="p">(</span><span class="o">%esp), %</span><span class="n">eax</span><span class="w">
+  </span><span class="n">movl</span><span class="w"> </span><span class="m">8</span><span class="p">(</span><span class="o">%esp), %</span><span class="n">edx</span><span class="w">
+
+  </span><span class="c1"># Save old callee-saved registers</span><span class="w">
+  </span><span class="n">pushl</span><span class="w"> </span><span class="o">%ebp
+  pushl %</span><span class="n">ebx</span><span class="w">
+  </span><span class="n">pushl</span><span class="w"> </span><span class="o">%esi
+  pushl %</span><span class="n">edi</span><span class="w">
+
+  </span><span class="c1"># Switch stacks</span><span class="w">
+  </span><span class="n">movl</span><span class="w"> </span><span class="o">%esp, (%</span><span class="n">eax</span><span class="p">)</span><span class="w">
+  </span><span class="n">movl</span><span class="w"> </span><span class="o">%edx, %</span><span class="n">esp</span><span class="w">
+
+  </span><span class="c1"># Load new callee-saved registers</span><span class="w">
+  </span><span class="n">popl</span><span class="w"> </span><span class="o">%edi
+  popl %</span><span class="n">esi</span><span class="w">
+  </span><span class="n">popl</span><span class="w"> </span><span class="o">%ebx
+  popl %</span><span class="n">ebp</span><span class="w">
+  </span><span class="n">ret</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Since we will interact with registers, this code is written in assembly. <code class="language-plaintext highlighter-rouge">Don's worry, I will try to explain as much as possible :D</code>.</p>
+
+<ul>
+  <li>
+<code class="language-plaintext highlighter-rouge">void swtch(struct context **old, struct context *new);</code> this is how this assembly code looks like in C</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">.globl swtch</code> makes the <code class="language-plaintext highlighter-rouge">swtch</code> label globally visible so that we can call this code in C.</li>
+  <li>In x86 convention (32-bit architecture specifically), function call is pushed onto the stack from right to left.</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">new</code> will be pushed onto the stack first, then <code class="language-plaintext highlighter-rouge">old</code> and finally the return address of this function.
+-<code class="language-plaintext highlighter-rouge">movl 4(%esp), %eax</code> moves the content at address <code class="language-plaintext highlighter-rouge">4($esp</code> which is the first argument <code class="language-plaintext highlighter-rouge">old</code> into register <code class="language-plaintext highlighter-rouge">$eax</code>
+-<code class="language-plaintext highlighter-rouge">movl 8(%esp), %eax</code> moves the content at address <code class="language-plaintext highlighter-rouge">4($esp</code> which is the second argument <code class="language-plaintext highlighter-rouge">old</code> into register <code class="language-plaintext highlighter-rouge">$eax</code>
+</li>
+  <li>the next 4 lines pushes registers that we saw in the <code class="language-plaintext highlighter-rouge">struct context</code> from above. Fields in struct are pushed in reversed order. The reasons <code class="language-plaintext highlighter-rouge">%eip</code> is not saved is that by the convention of x86, function call will push push <code class="language-plaintext highlighter-rouge">%eip</code> onto the stack which is the return address.</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">movl %esp, (%eax)</code> saves the current stack pointer into location pointed by <code class="language-plaintext highlighter-rouge">%eax</code> which is old</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">movl %edx, %esp</code>, the stack pointer is set to the value in <code class="language-plaintext highlighter-rouge">%edx</code> which is <code class="language-plaintext highlighter-rouge">new</code>. This line will change the stack to the context of <code class="language-plaintext highlighter-rouge">new</code>, means that we switch the running thread</li>
+  <li>now we at the new context, we restores the saved registers. <strong>Note that this is the next context’s saved state.</strong>
+</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">ret</code> returns from the <code class="language-plaintext highlighter-rouge">swtch function</code>
+</li>
+</ul>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="go">// at the start of swtch
+[Higher Addresses]
+</span><span class="c">...
+</span><span class="go">return address     &lt;-- Pushed by `call swtch` &lt;- %esp
+</span><span class="gp">&amp;p-&gt;</span>context        &lt;<span class="nt">--</span> <span class="sb">`</span>new<span class="sb">`</span> <span class="o">(</span>rightmost argument<span class="o">)</span>
+<span class="gp">mycpu()-&gt;</span>scheduler &lt;<span class="nt">--</span> <span class="sb">`</span>old<span class="sb">`</span> <span class="o">(</span>leftmost argument<span class="o">)</span>
+<span class="go">[Lower Addresses]
+</span></code></pre></div></div>
+
+<p>So inside the call to <code class="language-plaintext highlighter-rouge">yield</code>, we will switch from the current user process into the CPU’s scheduler.</p>
+
+<h2 id="the-scheduler">The Scheduler</h2>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span>
+<span class="nf">scheduler</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="k">struct</span> <span class="n">proc</span> <span class="o">*</span><span class="n">p</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">cpu</span> <span class="o">*</span><span class="n">c</span> <span class="o">=</span> <span class="n">mycpu</span><span class="p">();</span>
+  <span class="n">c</span><span class="o">-&gt;</span><span class="n">proc</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  
+  <span class="k">for</span><span class="p">(;;){</span>
+    <span class="c1">// Enable interrupts on this processor.</span>
+    <span class="n">sti</span><span class="p">();</span>
+
+    <span class="c1">// Loop over process table looking for process to run.</span>
+    <span class="n">acquire</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptable</span><span class="p">.</span><span class="n">lock</span><span class="p">);</span>
+    <span class="k">for</span><span class="p">(</span><span class="n">p</span> <span class="o">=</span> <span class="n">ptable</span><span class="p">.</span><span class="n">proc</span><span class="p">;</span> <span class="n">p</span> <span class="o">&lt;</span> <span class="o">&amp;</span><span class="n">ptable</span><span class="p">.</span><span class="n">proc</span><span class="p">[</span><span class="n">NPROC</span><span class="p">];</span> <span class="n">p</span><span class="o">++</span><span class="p">){</span>
+      <span class="k">if</span><span class="p">(</span><span class="n">p</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">!=</span> <span class="n">RUNNABLE</span><span class="p">)</span>
+        <span class="k">continue</span><span class="p">;</span>
+
+      <span class="c1">// Switch to chosen process.  It is the process's job</span>
+      <span class="c1">// to release ptable.lock and then reacquire it</span>
+      <span class="c1">// before jumping back to us.</span>
+      <span class="n">c</span><span class="o">-&gt;</span><span class="n">proc</span> <span class="o">=</span> <span class="n">p</span><span class="p">;</span>
+      <span class="n">switchuvm</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
+      <span class="n">p</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">=</span> <span class="n">RUNNING</span><span class="p">;</span>
+
+      <span class="n">swtch</span><span class="p">(</span><span class="o">&amp;</span><span class="p">(</span><span class="n">c</span><span class="o">-&gt;</span><span class="n">scheduler</span><span class="p">),</span> <span class="n">p</span><span class="o">-&gt;</span><span class="n">context</span><span class="p">);</span>
+      <span class="n">switchkvm</span><span class="p">();</span>
+
+      <span class="c1">// Process is done running for now.</span>
+      <span class="c1">// It should have changed its p-&gt;state before coming back.</span>
+      <span class="n">c</span><span class="o">-&gt;</span><span class="n">proc</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="n">release</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptable</span><span class="p">.</span><span class="n">lock</span><span class="p">);</span>
+
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>The scheduler is per-CPU scheduler, which means each CPU has it owns scheduler but they all share the same process list. The outer loop is an infinite loop so that it never returns. The inner loop is to find the next process to run. The xv6 scheduler is implemented using round-robin algorithm which is our inner loop. When we found a process that is <code class="language-plaintext highlighter-rouge">RUNNABLE</code>, we will context switch to that process so that it can be run.</p>
+
+<p>At this point, from someone who knows how to code perspective but does not know about the OS, they will think that after the <code class="language-plaintext highlighter-rouge">swtch</code>, the loop will continue to run. But as we know, we are now running at difference position until we call <code class="language-plaintext highlighter-rouge">yield</code> again which will continue to run the line after <code class="language-plaintext highlighter-rouge">swtch</code>.</p>
+
+<p>After the called to <code class="language-plaintext highlighter-rouge">swtch</code>, we are back to the called to the function <code class="language-plaintext highlighter-rouge">yield</code> in <code class="language-plaintext highlighter-rouge">trap.c</code>. We were sent to this point because of the timer-interrupt (Do you remember this :D).</p>
+
+<p><img src="/assets/switch-flow.png" alt="Timer interrupt flow"></p>
+
+<p>Here is where each code will be called to help you build your mental model.</p>
+
+<ul>
+  <li>
+<code class="language-plaintext highlighter-rouge">swtch</code> called by scheduler in <code class="language-plaintext highlighter-rouge">proc.c</code>
+</li>
+  <li>after executing for X ms, timer-interrupt will force the process into the <code class="language-plaintext highlighter-rouge">trap.c</code>
+</li>
+  <li>in <code class="language-plaintext highlighter-rouge">trap.c</code>, the process will call <code class="language-plaintext highlighter-rouge">yield</code> in <code class="language-plaintext highlighter-rouge">proc.c</code> to give up the CPU, which will call <code class="language-plaintext highlighter-rouge">sched</code>
+</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">sched</code> will call <code class="language-plaintext highlighter-rouge">swtch</code> in <code class="language-plaintext highlighter-rouge">swtch.S</code> to perform the context switch
+This process is perform repeatedly to switch from user process to the scheduler and back to user process.</li>
+</ul>
+
+<h3 id="summary">Summary</h3>
+
+<ul>
+  <li>
+    <p>OS uses timer interrupt to control how much a process can run.</p>
+  </li>
+  <li>
+    <p>At the end of the timer interrupt, the process will call <code class="language-plaintext highlighter-rouge">yield</code> to give up the CPU.</p>
+  </li>
+  <li>
+    <p>During a context switch, the process will save the current context and switch to the context of the CPU’s scheduler before the scheduler decides which process to run.</p>
+  </li>
+</ul>
+
+<hr>
+<h2 id="resources-references">Resources, references</h2>
+
+<ul>
+  <li>
+    <p><a href="https://pages.cs.wisc.edu/~remzi/OSTEP/" target="_blank">https://pages.cs.wisc.edu/~remzi/OSTEP/</a></p>
+  </li>
+  <li>
+    <p><a href="https://github.com/palladian1/xv6-annotated" target="_blank">https://github.com/palladian1/xv6-annotated</a></p>
+  </li>
+  <li>
+    <p><a href="https://github.com/mit-pdos/xv6-public" target="_blank">https://github.com/mit-pdos/xv6-public</a></p>
+  </li>
+  <li>
+    <p><a href="https://github.com/remzi-arpacidusseau/ostep-projects/tree/master/initial-xv6" target="_blank">https://github.com/remzi-arpacidusseau/ostep-projects/tree/master/initial-xv6</a></p>
+  </li>
+</ul>
+</body></html>
+            <!-- <p>This line appears after every note.</p> -->
+        </content>
+
+        <side style="font-size: 0.9em">
+            <h3 style="margin-bottom: 1em">Notes mentioning this note</h3>
+            
+
+            <div style="font-size: 0.9em">
+                <p>There are no notes linking to this note.</p>
+            </div>
+            
+        </side>
+    </div>
+</article>
+
+<hr />
+
+<p>
+    Here are all the notes in this blog, along with their links, visualized as a
+    graph.
+</p>
+
+<style>
+  .links line {
+    stroke: #ccc;
+    opacity: 0.5;
+  }
+
+  .nodes circle {
+    cursor: pointer;
+    fill: #8b88e6;
+    transition: all 0.15s ease-out;
+  }
+
+  .text text {
+    cursor: pointer;
+    fill: #333;
+    text-shadow: -1px -1px 0 #fafafabb, 1px -1px 0 #fafafabb, -1px 1px 0 #fafafabb, 1px 1px 0 #fafafabb;
+  }
+
+  .nodes [active],
+  .text [active] {
+    cursor: pointer;
+    fill: black;
+  }
+
+  .inactive {
+    opacity: 0.1;
+    transition: all 0.15s ease-out;
+  }
+
+  #graph-wrapper {
+    background: #fcfcfc;
+    border-radius: 4px;
+    height: auto;
+  }
+  
+  #graph-wrapper > svg {
+    max-width: 100%;
+    display: block;
+  }
+</style>
+
+<div id="graph-wrapper">
+  <script>
+    window.addEventListener("load", loadGraph);
+
+    function loadGraph() {
+      var oScript = document.createElement("script");
+      oScript.src = "https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js";
+      oScript.crossOrigin = 'anonymous';
+      oScript.integrity =
+        "sha512-FHsFVKQ/T1KWJDGSbrUhTJyS1ph3eRrxI228ND0EGaEp6v4a/vGwPWd3Dtd/+9cI7ccofZvl/wulICEurHN1pg==";
+      document.body.appendChild(oScript);
+      oScript.onload = () => {
+        const MINIMAL_NODE_SIZE = 8;
+        const MAX_NODE_SIZE = 12;
+        const ACTIVE_RADIUS_FACTOR = 1.5;
+        const STROKE = 1;
+        const FONT_SIZE = 16;
+        const TICKS = 200;
+        const FONT_BASELINE = 40;
+        const MAX_LABEL_LENGTH = 50;
+
+        const graphData = {"edges":[{"source":"120118543211599104101100117108101114329711010032991111101161011201163211511910511699104","target":"65100100105110103329732115121115116101109329997108108321161113212011854"},{"source":"83105109112108101328467803283101114118101114456710810510111011632112971141163250443211111610410111432991111109911711411410111011632831011141181011143268101115105103110115","target":"83105109112108101328467803283101114118101114456710810510111011632112971141163249"}],"nodes":[{"id":"6610112111111010032771171081161051121141119910111511510511010346464632771171081161051161041141019710010511010332116104101328311711079833275101114110101108","path":"/sunos-5-0-multithreading","label":"Beyond Multiprocessing... Multithreading the SunOS Kernel"},{"id":"7797112821011001179910158328310510911210810510210510110032689711697328011411199101115115105110103321111103276971141031013267108117115116101114115","path":"/mapreduce","label":"MapReduce: Simplified Data Processing on Large Clusters"},{"id":"65100100105110103329732115121115116101109329997108108321161113212011854","path":"/adding-a-system-call-to-xv6","label":"Adding a system call to xv6"},{"id":"120118543211599104101100117108101114329711010032991111101161011201163211511910511699104","path":"/xv6-scheduler-and-context-switch","label":"xv6 scheduler and context switch"},{"id":"72979910710511010332120118543211297103101321169798108101","path":"/hacking-xv6-page-table","label":"Hacking xv6 page table"},{"id":"7010510810132734779","path":"/1-file-io","label":"File I/O"},{"id":"83105109112108101328467803283101114118101114456710810510111011632112971141163249","path":"/2-simple-tcp-server-client-1","label":"Simple TCP Server-Client part 1"},{"id":"83105109112108101328467803283101114118101114456710810510111011632112971141163250443211111610410111432991111109911711411410111011632831011141181011143268101115105103110115","path":"/3-simple-tcp-server-client-2-other-concurrent-server-designs","label":"Simple TCP Server-Client part 2, other concurrent Server Designs"}]}
+        let nodesData = graphData.nodes;
+        let linksData = graphData.edges;
+
+        const nodeSize = {};
+
+        const updateNodeSize = () => {
+          nodesData.forEach((el) => {
+            let weight =
+              3 *
+              Math.sqrt(
+                linksData.filter((l) => l.source.id === el.id || l.target.id === el.id)
+                  .length + 1
+              );
+            if (weight < MINIMAL_NODE_SIZE) {
+              weight = MINIMAL_NODE_SIZE;
+            } else if (weight > MAX_NODE_SIZE) {
+              weight = MAX_NODE_SIZE;
+            }
+            nodeSize[el.id] = weight;
+          });
+        };
+
+        const onClick = (d) => {
+          window.location = d.path
+        };
+
+        const onMouseover = function (d) {
+          const relatedNodesSet = new Set();
+          linksData
+            .filter((n) => n.target.id == d.id || n.source.id == d.id)
+            .forEach((n) => {
+              relatedNodesSet.add(n.target.id);
+              relatedNodesSet.add(n.source.id);
+            });
+
+          node.attr("class", (node_d) => {
+            if (node_d.id !== d.id && !relatedNodesSet.has(node_d.id)) {
+              return "inactive";
+            }
+            return "";
+          });
+
+          link.attr("class", (link_d) => {
+            if (link_d.source.id !== d.id && link_d.target.id !== d.id) {
+              return "inactive";
+            }
+            return "";
+          });
+
+          link.attr("stroke-width", (link_d) => {
+            if (link_d.source.id === d.id || link_d.target.id === d.id) {
+              return STROKE * 4;
+            }
+            return STROKE;
+          });
+          text.attr("class", (text_d) => {
+            if (text_d.id !== d.id && !relatedNodesSet.has(text_d.id)) {
+              return "inactive";
+            }
+            return "";
+          });
+        };
+
+        const onMouseout = function (d) {
+          node.attr("class", "");
+          link.attr("class", "");
+          text.attr("class", "");
+          link.attr("stroke-width", STROKE);
+        };
+
+        const sameNodes = (previous, next) => {
+          if (next.length !== previous.length) {
+            return false;
+          }
+
+          const map = new Map();
+          for (const node of previous) {
+            map.set(node.id, node.label);
+          }
+
+          for (const node of next) {
+            const found = map.get(node.id);
+            if (!found || found !== node.title) {
+              return false;
+            }
+          }
+
+          return true;
+        };
+
+        const sameEdges = (previous, next) => {
+          if (next.length !== previous.length) {
+            return false;
+          }
+
+          const set = new Set();
+          for (const edge of previous) {
+            set.add(`${edge.source.id}-${edge.target.id}`);
+          }
+
+          for (const edge of next) {
+            if (!set.has(`${edge.source.id}-${edge.target.id}`)) {
+              return false;
+            }
+          }
+
+          return true;
+        };
+
+        const graphWrapper = document.getElementById('graph-wrapper')
+        const element = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        element.setAttribute("width", graphWrapper.getBoundingClientRect().width);
+        element.setAttribute("height", window.innerHeight * 0.8);
+        graphWrapper.appendChild(element);
+
+        const reportWindowSize = () => {
+          element.setAttribute("width", window.innerWidth);
+          element.setAttribute("height", window.innerHeight);
+        };
+
+        window.onresize = reportWindowSize;
+
+        const svg = d3.select("svg");
+        const width = Number(svg.attr("width"));
+        const height = Number(svg.attr("height"));
+        let zoomLevel = 1;
+
+        const simulation = d3
+          .forceSimulation(nodesData)
+          .force("forceX", d3.forceX().x(width / 2))
+          .force("forceY", d3.forceY().y(height / 2))
+          .force("charge", d3.forceManyBody())
+          .force(
+            "link",
+            d3
+              .forceLink(linksData)
+              .id((d) => d.id)
+              .distance(70)
+          )
+          .force("center", d3.forceCenter(width / 2, height / 2))
+          .force("collision", d3.forceCollide().radius(80))
+          .stop();
+
+        const g = svg.append("g");
+        let link = g.append("g").attr("class", "links").selectAll(".link");
+        let node = g.append("g").attr("class", "nodes").selectAll(".node");
+        let text = g.append("g").attr("class", "text").selectAll(".text");
+
+        const resize = () => {
+          if (d3.event) {
+            const scale = d3.event.transform;
+            zoomLevel = scale.k;
+            g.attr("transform", scale);
+          }
+
+          const zoomOrKeep = (value) => (zoomLevel >= 1 ? value / zoomLevel : value);
+
+          const font = Math.max(Math.round(zoomOrKeep(FONT_SIZE)), 1);
+
+          text.attr("font-size", (d) => font);
+          text.attr("y", (d) => d.y - zoomOrKeep(FONT_BASELINE) + 8);
+          link.attr("stroke-width", zoomOrKeep(STROKE));
+          node.attr("r", (d) => {
+            return zoomOrKeep(nodeSize[d.id]);
+          });
+          svg
+            .selectAll("circle")
+            .filter((_d, i, nodes) => d3.select(nodes[i]).attr("active"))
+            .attr("r", (d) => zoomOrKeep(ACTIVE_RADIUS_FACTOR * nodeSize[d.id]));
+        };
+
+        const ticked = () => {
+          node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+          text
+            .attr("x", (d) => d.x)
+            .attr("y", (d) => d.y - (FONT_BASELINE - nodeSize[d.id]) / zoomLevel);
+          link
+            .attr("x1", (d) => d.source.x)
+            .attr("y1", (d) => d.source.y)
+            .attr("x2", (d) => d.target.x)
+            .attr("y2", (d) => d.target.y);
+        };
+
+        const restart = () => {
+          updateNodeSize();
+          node = node.data(nodesData, (d) => d.id);
+          node.exit().remove();
+          node = node
+            .enter()
+            .append("circle")
+            .attr("r", (d) => {
+              return nodeSize[d.id];
+            })
+            .on("click", onClick)
+            .on("mouseover", onMouseover)
+            .on("mouseout", onMouseout)
+            .merge(node);
+
+          link = link.data(linksData, (d) => `${d.source.id}-${d.target.id}`);
+          link.exit().remove();
+          link = link.enter().append("line").attr("stroke-width", STROKE).merge(link);
+
+          text = text.data(nodesData, (d) => d.label);
+          text.exit().remove();
+          text = text
+            .enter()
+            .append("text")
+            .text((d) => shorten(d.label.replace(/_*/g, ""), MAX_LABEL_LENGTH))
+            .attr("font-size", `${FONT_SIZE}px`)
+            .attr("text-anchor", "middle")
+            .attr("alignment-baseline", "central")
+            .on("click", onClick)
+            .on("mouseover", onMouseover)
+            .on("mouseout", onMouseout)
+            .merge(text);
+
+          node.attr("active", (d) => isCurrentPath(d.path) ? true : null);
+          text.attr("active", (d) => isCurrentPath(d.path) ? true : null);
+
+          simulation.nodes(nodesData);
+          simulation.force("link").links(linksData);
+          simulation.alpha(1).restart();
+          simulation.stop();
+
+          for (let i = 0; i < TICKS; i++) {
+            simulation.tick();
+          }
+
+          ticked();
+        };
+
+        const zoomHandler = d3.zoom().scaleExtent([0.2, 3]).on("zoom", resize);
+
+        zoomHandler(svg);
+        restart();
+
+        function isCurrentPath(notePath) {
+          return window.location.pathname.includes(notePath)
+        }
+
+        function shorten(str, maxLen, separator = ' ') {
+          if (str.length <= maxLen) return str;
+          return str.substr(0, str.lastIndexOf(separator, maxLen)) + '...';
+        }
+      }
+    }
+  </script>
+</div>
+
+</main>
+      <footer><a class="internal-link" href="/about">An Ha is me</a>
+</footer>
+    </div>
+
+    <!-- That file is not particularly elegant. This will need a refactor at some point. -->
+<style>
+  content a.internal-link {
+    border-color: #8b88e6;
+    background-color: #efefff;
+  }
+
+  #tooltip-wrapper {
+    background: white;
+    padding: 1em;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    position: absolute;
+    width: 400px;
+    height: 250px;
+    font-size: 0.8em;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+    opacity: 0;
+    transition: opacity 100ms;
+  }
+
+  #tooltip-wrapper:after {
+		content: "";
+		position: absolute;
+		z-index: 1;
+		bottom: 0;
+		left: 0;
+		pointer-events: none;
+		background-image: linear-gradient(to bottom, rgba(255,255,255, 0), rgba(255,255,255, 1) 90%);
+		width: 100%;
+		height: 75px;
+  }
+</style>
+
+<div style="opacity: 0; display: none;" id='tooltip-wrapper'>
+  <div id='tooltip-content'>
+  </div>
+</div>
+
+<iframe style="display: none; height: 0; width: 0;" id='link-preview-iframe' src="">
+</iframe>
+
+<script>
+  var opacityTimeout;
+  var contentTimeout;
+  var transitionDurationMs = 100;
+
+  var iframe = document.getElementById('link-preview-iframe')
+  var tooltipWrapper = document.getElementById('tooltip-wrapper')
+  var tooltipContent = document.getElementById('tooltip-content')
+
+  var linkHistories = {};
+
+  function hideTooltip() {
+    opacityTimeout = setTimeout(function() {
+      tooltipWrapper.style.opacity = 0;
+      contentTimeout = setTimeout(function() {
+        tooltipContent.innerHTML = '';
+        tooltipWrapper.style.display = 'none';
+      }, transitionDurationMs + 1);
+    }, transitionDurationMs)
+  }
+
+  function showTooltip(event) {
+    var elem = event.target;
+    var elem_props = elem.getClientRects()[elem.getClientRects().length - 1];
+    var top = window.pageYOffset || document.documentElement.scrollTop
+
+    if (event.target.host === window.location.host) {
+      if (!linkHistories[event.target.href]) {
+        iframe.src = event.target.href
+        iframe.onload = function() {
+          tooltipContentHtml = ''
+          tooltipContentHtml += '<div style="font-weight: bold;">' + iframe.contentWindow.document.querySelector('h1').innerHTML + '</div>'
+          tooltipContentHtml += iframe.contentWindow.document.querySelector('content').innerHTML
+
+          tooltipContent.innerHTML = tooltipContentHtml
+          linkHistories[event.target.href] = tooltipContentHtml
+
+          tooltipWrapper.style.display = 'block';
+          setTimeout(function() {
+            tooltipWrapper.style.opacity = 1;
+          }, 1)
+        } 
+      } else {
+        tooltipContent.innerHTML = linkHistories[event.target.href]
+        tooltipWrapper.style.display = 'block';
+        setTimeout(function() {
+          tooltipWrapper.style.opacity = 1;
+        }, 1)
+      }
+
+
+      tooltipWrapper.style.left = elem_props.left - (tooltipWrapper.offsetWidth / 2) + (elem_props.width / 2) + "px";
+      if ((window.innerHeight - elem_props.top) < (tooltipWrapper.offsetHeight)) {
+          tooltipWrapper.style.top = elem_props.top + top - tooltipWrapper.offsetHeight - 10 + "px";
+      } else if ((window.innerHeight - elem_props.top) > (tooltipWrapper.offsetHeight)) {
+          tooltipWrapper.style.top = elem_props.top + top + 35 + "px";
+      }
+
+      if ((elem_props.left + (elem_props.width / 2)) < (tooltipWrapper.offsetWidth / 2)) {
+          tooltipWrapper.style.left = "10px";
+      } else if ((document.body.clientWidth - elem_props.left - (elem_props.width / 2)) < (tooltipWrapper.offsetWidth / 2)) {
+          tooltipWrapper.style.left = document.body.clientWidth - tooltipWrapper.offsetWidth - 20 + "px";
+      }
+    }
+  }
+
+  function setupListeners(linkElement) {
+    linkElement.addEventListener('mouseleave', function(_event) {
+      hideTooltip();
+    });
+
+    tooltipWrapper.addEventListener('mouseleave', function(_event) {
+      hideTooltip();
+    });
+
+    linkElement.addEventListener('touchend', function(_event) {
+      hideTooltip();
+    });
+
+    tooltipWrapper.addEventListener('touchend', function(_event) {
+      hideTooltip();
+    });
+
+    linkElement.addEventListener('mouseenter', function(event) {
+      clearTimeout(opacityTimeout);
+      clearTimeout(contentTimeout);
+      showTooltip(event);
+    });
+
+    tooltipWrapper.addEventListener('mouseenter', function(event) {
+      clearTimeout(opacityTimeout);
+      clearTimeout(contentTimeout);
+    });
+  }
+
+  document.querySelectorAll('content a').forEach(setupListeners);
+</script>
+
+  </body>
+</html>

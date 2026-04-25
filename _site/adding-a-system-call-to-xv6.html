@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  <meta charset="UTF-8">
+
+  <link rel="canonical" href="http://localhost:4000/adding-a-system-call-to-xv6" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="description" content="What are we doing??">
+
+  <meta property="og:site_name" content="AN HA">
+
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
+
+  <link rel="stylesheet" href="/styles.css">
+
+  
+  <meta property="og:description" content="What are we doing??"/>
+  
+
+  
+  <meta property="og:title" content="Adding a system call to xv6">
+  <meta property="og:type" content="article">
+  
+
+  
+  <meta property="article:published_time" content="2024-09-01T00:00:00+07:00">
+  <meta property="article:author" content="http://localhost:4000/">
+  
+
+  <meta property="og:url" content="http://localhost:4000/adding-a-system-call-to-xv6" />
+
+  
+
+  <title>
+    
+      Adding a system call to xv6 &mdash; AN HA
+    
+  </title>
+</head>
+
+  <body>
+    <nav><div class="site-nav">
+    <a class="internal-link" href="/"><b>AN HA</b></a>
+    <a class="internal-link nav-item" href="/research-papers">Research Papers</a>
+</div>
+
+<style>
+  .site-nav {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  
+  .nav-item {
+    font-size: 0.9em;
+  }
+</style></nav>
+    <div class="wrapper">
+      <main><article>
+    <div>
+        <h1>Adding a system call to xv6</h1>
+        <time datetime="2025-04-06T15:39:00+07:00"
+            > Last updated on April 6, 2025 
+        </time>
+    </div>
+
+    <div id="notes-entry-container">
+    <!-- <div> -->
+        <content>
+            <html><body>
+<h2 id="what-are-we-doing">What are we doing??</h2>
+
+<p>We will add a system call to the XV6 kernel to understand how a user program can ask the kernel how to do a privilege operation. I will try to explain some basic concepts first and then show you the code. The source code for the XV6 kernel is <a href="https://github.com/mit-pdos/xv6-public/tree/master" target="_blank">here</a>.</p>
+
+<h3 id="background">Background</h3>
+
+<h2 id="what-is-a-system-call">What is a system call?</h2>
+
+<p>To understand why we need a system call, we need to know about <strong>limited direct execution (LDE).</strong> Imagine a world without laws, everything will wreak havoc, traffic will be a nightmare to participate in, and everyone will want everything for themself. It is the same for operating systems, user programs can use CPUs as long as they want without considering other programs. Without control, processes can take over the machine, accessing information that it is not allowed to access.</p>
+
+<p>Limited direct execution is the idea that user program can execute their code directly on the CPU while being “<strong>limited</strong>”. Limited means that the OS makes sure the program doesn’t do anything that we don’t want it to do which is <strong>restricted operations</strong>. Also when the process is running, the OS can stop user programs and switch to another process so that <strong>resouces on a machine can be shared</strong>. A system call is an interface that the OS provides us so that it can provide restricted operations.</p>
+
+<p>A system call is the kernel’s interface for a user program to access computer resources in a <strong>restricted manner</strong>. System calls likes <code class="language-plaintext highlighter-rouge">fork()</code>, <code class="language-plaintext highlighter-rouge">exec()</code>, <code class="language-plaintext highlighter-rouge">wait()</code>, <code class="language-plaintext highlighter-rouge">kill()</code> allow programs to create new processes, execute different programs, synchronize with child processes, and terminate processes. There are also I/O operations such as <code class="language-plaintext highlighter-rouge">open()</code>, <code class="language-plaintext highlighter-rouge">read()</code>, <code class="language-plaintext highlighter-rouge">write()</code>, <code class="language-plaintext highlighter-rouge">close().</code> In today’s modern operating system, there are more than hundreds of system calls provided by the OS. With LDE, user programs are executed in <strong>user mode</strong>, when they want to access restricted resources such as (memory, I/O, etc), programs will use system calls to ask the kernel that runs in <strong>kernel mode</strong> to execute privilege operation on behalf of user programs.</p>
+
+<h3 id="what-happens-during-a-system-call">What happens during a system call?</h3>
+
+<p>When a user program makes a system call, it executes a <strong>special trap instruction</strong>. The instruction causes the processor to switch to the kernel (switch to kernel stack), raises the privilege level to kernel mode, and starts executing kernel instructions. Upon completion, the processor returns to user space, the hardware lowers its privilege level, switches back to the user stack, and resumes executing user instructions.</p>
+
+<hr>
+
+<h2 id="the-xv6-kernel-code">The XV6 kernel code</h2>
+
+<p><img src="https://substackcdn.com/image/fetch/w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F68f1d7a8-a551-4ce6-9704-92ffd47400fe_2667x1499.png" alt="kernel trap setup"></p>
+
+<p>System calls are one of three cases when control must be transferred from a user program to the kernel, the others are exceptions and interrupts. Lots of processors handle these events by a single hardware mechanism, in this case, the source code of xv6 (there are so xv6-riscv) is built on x86 architecture which uses the <code class="language-plaintext highlighter-rouge">int</code> instruction to invoke an interrupt. <strong>Use programs can invoke a system call by generating an interrupt using the</strong> <code class="language-plaintext highlighter-rouge">int</code> <strong>instruction</strong>. An interrupt stops the loop of a processor and starts executing an <strong>interrupt handler</strong>. The hardware raises the privilege level and saves the user program’s registers in its kernel stack so that it can resume executing after returning to user programs.</p>
+
+<p>On the x86, interrupt handlers are defined in the <strong>interrupt descriptor table (IDT)</strong> which has 256 entries. System call is defined as the <strong>64th entry</strong>.</p>
+
+<p>Let’s look at how a user programs make a system call:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: usys.S</span>
+<span class="cp">#include</span> <span class="cpf">"syscall.h"</span><span class="cp">
+#include</span> <span class="cpf">"traps.h"</span><span class="cp">
+</span>
+<span class="cp">#define SYSCALL(name) \
+  .globl name; \
+  name: \
+    movl $SYS_ ## name, %eax; \
+    int $T_SYSCALL; \
+    ret
+</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">fork</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">exit</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">wait</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">pipe</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">read</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">write</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">close</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">kill</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">exec</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">open</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">mknod</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">unlink</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">fstat</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">mkdir</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">chdir</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">dup</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">getpid</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">sbrk</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">sleep</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">uptime</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Let’s compile this code to see what it does</p>
+
+<p><img src="https://substackcdn.com/image/fetch/w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F4fd8298c-c1c6-4ce7-b1d0-d9c74c6af57e_800x709.png" alt="XV6 Kernel Source Code Visualization"></p>
+
+<p>As we can see for the <code class="language-plaintext highlighter-rouge">fork()</code> system calls, we will move the constant number 1 into the <strong>%eax register</strong>, then we will call the <strong>int</strong> instruction with 64 as the interrupt number for system calls, after executing the kernel will call <code class="language-plaintext highlighter-rouge">ret</code> which will handle the <strong>return-from-trap</strong>.</p>
+
+<h3 id="setting-up-trap-tables">Setting up Trap Tables</h3>
+
+<p>At the OS is booting up, it is running in kernel mode, so that it can configure the machine hardware. OS must tell the hardware what code to run on certain events such as system calls, traps, or interrupts (this blog will focus only on system calls). The OS must inform the hardware where the trap handler is.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: main.c</span>
+<span class="kt">int</span>
+<span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="c1">// ..</span>
+  <span class="n">tvinit</span><span class="p">();</span>        <span class="c1">// trap vectors</span>
+  <span class="c1">// ..</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>In <code class="language-plaintext highlighter-rouge">main.c</code>, <code class="language-plaintext highlighter-rouge">tvinit</code> is where the trap table is set up.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: trap.c</span>
+<span class="kt">void</span>
+<span class="nf">tvinit</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+
+  <span class="k">for</span><span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">256</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="n">SETGATE</span><span class="p">(</span><span class="n">idt</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SEG_KCODE</span><span class="o">&lt;&lt;</span><span class="mi">3</span><span class="p">,</span> <span class="n">vectors</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">0</span><span class="p">);</span>
+  <span class="n">SETGATE</span><span class="p">(</span><span class="n">idt</span><span class="p">[</span><span class="n">T_SYSCALL</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">SEG_KCODE</span><span class="o">&lt;&lt;</span><span class="mi">3</span><span class="p">,</span> <span class="n">vectors</span><span class="p">[</span><span class="n">T_SYSCALL</span><span class="p">],</span> <span class="n">DPL_USER</span><span class="p">);</span>
+
+  <span class="n">initlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">tickslock</span><span class="p">,</span> <span class="s">"time"</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// These are arbitrarily chosen, but with care not to overlap</span>
+<span class="c1">// processor defined exceptions or interrupt vectors.</span>
+<span class="cp">#define T_SYSCALL       64      // system call
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">SETGATE()</code> macro is used to set the <code class="language-plaintext highlighter-rouge">IDT</code> array to the proper code to execute. What we want to look at is the <code class="language-plaintext highlighter-rouge">SETGATE</code> out of the loop. The value <code class="language-plaintext highlighter-rouge">vectors[T_SYSCALL]</code> is passed in, which means that it tells the hardware <code class="language-plaintext highlighter-rouge">vectors[T_SYSCALL</code><strong>]</strong> is the trap handler for <code class="language-plaintext highlighter-rouge">IDT[T_SYSCALL]</code>.</p>
+
+<p>Let’s look at what is defined in <code class="language-plaintext highlighter-rouge">vectors.S</code> which can be compiled using Perl<strong>.</strong></p>
+
+<div class="language-perl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">perl</span> <span class="nv">vectors</span><span class="o">.</span><span class="nv">pl</span> <span class="o">&gt;</span> <span class="nv">vectors</span><span class="o">.</span><span class="nv">S</span>
+<span class="c1"># sample output:</span>
+<span class="o">.</span><span class="nv">globl</span> <span class="nv">vector64</span>
+<span class="nv">vector64:</span>
+  <span class="nv">pushl</span> <span class="err">$</span><span class="mi">64</span>
+  <span class="nv">jmp</span> <span class="nv">alltraps</span>
+</code></pre></div></div>
+
+<p>Some interrupts have error codes, system calls will push 0 as a dummy error code. As mentioned above, system calls, exceptions, and interrupts are handled by one hardware mechanism, that is why we need a dummy error code for system calls. Next, it will push an interrupt number which again for system calls will be 64. Finally, it will jump to <code class="language-plaintext highlighter-rouge">alltraps</code>.</p>
+
+<p>Current flow:</p>
+
+<ol>
+  <li>
+    <p>initialize trap table</p>
+  </li>
+  <li>
+    <p>user program makes a system call ← <strong>we are here</strong></p>
+
+    <ol>
+      <li>
+        <p>put the number of the system call we want to call in <code class="language-plaintext highlighter-rouge">%eax</code> register</p>
+      </li>
+      <li>
+        <p>invoke <code class="language-plaintext highlighter-rouge">int</code> with the interrupt number</p>
+      </li>
+    </ol>
+  </li>
+  <li>
+    <p>hardware saves the needed registers and jumps to the C trap handler</p>
+  </li>
+  <li>
+    <p>returns to the user program</p>
+  </li>
+</ol>
+
+<h3 id="hardware-task-to-the-c-trap-handler">Hardware Task to the C Trap handler</h3>
+
+<p>Before going to the C Trap handler, the hardware will do several tasks that are hard for software to do by itself. Saving the current program counter <code class="language-plaintext highlighter-rouge">%eip</code> on the kernel stack (<code class="language-plaintext highlighter-rouge">%eip</code> will point to the next code to be executed in the user program), then it will save other registers such as <code class="language-plaintext highlighter-rouge">%eflags</code> (current status of the CPU, etc., interrupt flags, privilege level,…, the stack pointer.). These registers will be saved on the trapframe of the process. We can see what the hardware will save for us by looking at the <code class="language-plaintext highlighter-rouge">struct trapframe</code> in the file <code class="language-plaintext highlighter-rouge">x86.h</code></p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: x86.h</span>
+<span class="k">struct</span> <span class="n">trapframe</span> <span class="p">{</span>
+  <span class="c1">// registers as pushed by pusha</span>
+  <span class="n">uint</span> <span class="n">edi</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">esi</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">ebp</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">oesp</span><span class="p">;</span>      <span class="c1">// useless &amp; ignored</span>
+  <span class="n">uint</span> <span class="n">ebx</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">edx</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">ecx</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">eax</span><span class="p">;</span>
+
+  <span class="c1">// rest of trap frame</span>
+  <span class="n">ushort</span> <span class="n">es</span><span class="p">;</span>
+  <span class="n">ushort</span> <span class="n">padding1</span><span class="p">;</span>
+  <span class="n">ushort</span> <span class="n">ds</span><span class="p">;</span>
+  <span class="n">ushort</span> <span class="n">padding2</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">trapno</span><span class="p">;</span>
+
+  <span class="c1">// below here defined by x86 hardware</span>
+  <span class="n">uint</span> <span class="n">err</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">eip</span><span class="p">;</span>
+  <span class="n">ushort</span> <span class="n">cs</span><span class="p">;</span>
+  <span class="n">ushort</span> <span class="n">padding3</span><span class="p">;</span>
+  <span class="n">uint</span> <span class="n">eflags</span><span class="p">;</span>
+
+  <span class="c1">// below here only when crossing rings, such as from user to kernel</span>
+  <span class="n">uint</span> <span class="n">esp</span><span class="p">;</span>
+  <span class="n">ushort</span> <span class="n">ss</span><span class="p">;</span>
+  <span class="n">ushort</span> <span class="n">padding4</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<p>After the interrupt handler is invoked, it will jump into <code class="language-plaintext highlighter-rouge">alltraps.</code></p>
+
+<div class="language-s highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#include "mmu.h"</span><span class="w">
+
+  </span><span class="c1"># vectors.S sends all traps here.</span><span class="w">
+</span><span class="n">.globl</span><span class="w"> </span><span class="n">alltraps</span><span class="w">
+</span><span class="n">alltraps</span><span class="o">:</span><span class="w">
+  </span><span class="c1"># Build trap frame.</span><span class="w">
+  </span><span class="n">pushl</span><span class="w"> </span><span class="o">%ds
+  pushl %</span><span class="n">es</span><span class="w">
+  </span><span class="n">pushl</span><span class="w"> </span><span class="o">%fs
+  pushl %</span><span class="n">gs</span><span class="w">
+  </span><span class="n">pushal</span><span class="w">
+
+  </span><span class="c1"># Set up data segments.</span><span class="w">
+  </span><span class="n">movw</span><span class="w"> </span><span class="o">$</span><span class="p">(</span><span class="n">SEG_KDATA</span><span class="o">&lt;&lt;</span><span class="m">3</span><span class="p">),</span><span class="w"> </span><span class="o">%ax
+  movw %</span><span class="n">ax</span><span class="p">,</span><span class="w"> </span><span class="o">%ds
+  movw %</span><span class="n">ax</span><span class="p">,</span><span class="w"> </span><span class="o">%es
+
+  # Call trap(tf), where tf=%</span><span class="n">esp</span><span class="w">
+  </span><span class="n">pushl</span><span class="w"> </span><span class="o">%esp
+  call trap
+  addl $4, %</span><span class="n">esp</span><span class="w">
+
+  </span><span class="c1"># Return falls through to trapret...</span><span class="w">
+</span><span class="n">.globl</span><span class="w"> </span><span class="n">trapret</span><span class="w">
+</span><span class="n">trapret</span><span class="o">:</span><span class="w">
+  </span><span class="n">popal</span><span class="w">
+  </span><span class="n">popl</span><span class="w"> </span><span class="o">%gs
+  popl %</span><span class="n">fs</span><span class="w">
+  </span><span class="n">popl</span><span class="w"> </span><span class="o">%es
+  popl %</span><span class="n">ds</span><span class="w">
+  </span><span class="n">addl</span><span class="w"> </span><span class="o">$</span><span class="mh">0x8</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="n">esp</span><span class="w">  </span><span class="c1"># trapno and errcode</span><span class="w">
+  </span><span class="n">iret</span><span class="w">
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">alltraps</code> will first push segment registers onto the stack (while xv6 uses paging as a mechanism for memory management, the kernel still needs segments), <code class="language-plaintext highlighter-rouge">pushall</code> will push all general-purpose registers. Then it will set up data segment for kernel operations. <code class="language-plaintext highlighter-rouge">pushl %esp</code> <strong>pushes the current stack pointer onto the stack</strong> which is all the things that we have pushed so far. Then we will jump the <code class="language-plaintext highlighter-rouge">trap()</code> function in C. When <code class="language-plaintext highlighter-rouge">trap()</code> returns, we will ignore its return value by moving the stack pointer just above it (same as popping off the stack). The code execution will fall through to the <code class="language-plaintext highlighter-rouge">trapret</code> beloved which is the <strong>return-from-trap</strong> that will restore our registers, lower the privilege level, and return us to the user program.</p>
+
+<p>Current flow:</p>
+
+<ol>
+  <li>
+    <p>initialize trap table</p>
+  </li>
+  <li>
+    <p>user program makes a system call</p>
+
+    <ol>
+      <li>
+        <p>put the number of the system call we want to call in <code class="language-plaintext highlighter-rouge">%eax</code> register</p>
+      </li>
+      <li>
+        <p>invoke <code class="language-plaintext highlighter-rouge">int</code> with the interrupt number</p>
+      </li>
+    </ol>
+  </li>
+  <li>
+    <p>hardware saves the needed registers and jumps to the C trap handler ← <strong>we are here</strong></p>
+  </li>
+  <li>
+    <p>returns to the user program</p>
+  </li>
+</ol>
+
+<h2 id="the-c-trap-handler">The C Trap handler</h2>
+
+<p>Let’s look at the trap() function:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span>
+<span class="nf">trap</span><span class="p">(</span><span class="k">struct</span> <span class="n">trapframe</span> <span class="o">*</span><span class="n">tf</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="k">if</span><span class="p">(</span><span class="n">tf</span><span class="o">-&gt;</span><span class="n">trapno</span> <span class="o">==</span> <span class="n">T_SYSCALL</span><span class="p">){</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">myproc</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">killed</span><span class="p">)</span>
+      <span class="n">exit</span><span class="p">();</span>
+    <span class="n">myproc</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">tf</span> <span class="o">=</span> <span class="n">tf</span><span class="p">;</span>
+    <span class="n">syscall</span><span class="p">();</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">myproc</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">killed</span><span class="p">)</span>
+      <span class="n">exit</span><span class="p">();</span>
+    <span class="k">return</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="c1">// ..</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>As we see in the <code class="language-plaintext highlighter-rouge">alltraps</code>, we pushed the stack pointer onto the stack which is the trapframe argument for this function. This code is called upon interrupts, exceptions, and system calls and thus it checks if the <code class="language-plaintext highlighter-rouge">trapno</code> is for system calls. It saves the current trapframe and then jumps to <code class="language-plaintext highlighter-rouge">syscall()</code>.</p>
+
+<p>Let’s look at the syscall function:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">static</span> <span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">syscalls</span><span class="p">[])(</span><span class="kt">void</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
+<span class="p">[</span><span class="n">SYS_fork</span><span class="p">]</span>    <span class="n">sys_fork</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_exit</span><span class="p">]</span>    <span class="n">sys_exit</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_wait</span><span class="p">]</span>    <span class="n">sys_wait</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_pipe</span><span class="p">]</span>    <span class="n">sys_pipe</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_read</span><span class="p">]</span>    <span class="n">sys_read</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_kill</span><span class="p">]</span>    <span class="n">sys_kill</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_exec</span><span class="p">]</span>    <span class="n">sys_exec</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_fstat</span><span class="p">]</span>   <span class="n">sys_fstat</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_chdir</span><span class="p">]</span>   <span class="n">sys_chdir</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_dup</span><span class="p">]</span>     <span class="n">sys_dup</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_getpid</span><span class="p">]</span>  <span class="n">sys_getpid</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_sbrk</span><span class="p">]</span>    <span class="n">sys_sbrk</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_sleep</span><span class="p">]</span>   <span class="n">sys_sleep</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_uptime</span><span class="p">]</span>  <span class="n">sys_uptime</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_open</span><span class="p">]</span>    <span class="n">sys_open</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_write</span><span class="p">]</span>   <span class="n">sys_write</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_mknod</span><span class="p">]</span>   <span class="n">sys_mknod</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_unlink</span><span class="p">]</span>  <span class="n">sys_unlink</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_link</span><span class="p">]</span>    <span class="n">sys_link</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_mkdir</span><span class="p">]</span>   <span class="n">sys_mkdir</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_close</span><span class="p">]</span>   <span class="n">sys_close</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="kt">void</span>
+<span class="nf">syscall</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="kt">int</span> <span class="n">num</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">proc</span> <span class="o">*</span><span class="n">curproc</span> <span class="o">=</span> <span class="n">myproc</span><span class="p">();</span>
+
+  <span class="n">num</span> <span class="o">=</span> <span class="n">curproc</span><span class="o">-&gt;</span><span class="n">tf</span><span class="o">-&gt;</span><span class="n">eax</span><span class="p">;</span>
+  <span class="k">if</span><span class="p">(</span><span class="n">num</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">num</span> <span class="o">&lt;</span> <span class="n">NELEM</span><span class="p">(</span><span class="n">syscalls</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">syscalls</span><span class="p">[</span><span class="n">num</span><span class="p">])</span> <span class="p">{</span>
+    <span class="n">curproc</span><span class="o">-&gt;</span><span class="n">tf</span><span class="o">-&gt;</span><span class="n">eax</span> <span class="o">=</span> <span class="n">syscalls</span><span class="p">[</span><span class="n">num</span><span class="p">]();</span>
+  <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="n">cprintf</span><span class="p">(</span><span class="s">"%d %s: unknown sys call %d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span>
+            <span class="n">curproc</span><span class="o">-&gt;</span><span class="n">pid</span><span class="p">,</span> <span class="n">curproc</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">);</span>
+    <span class="n">curproc</span><span class="o">-&gt;</span><span class="n">tf</span><span class="o">-&gt;</span><span class="n">eax</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Each system call has a number so that we know which will be revoked. <strong>Remember that we push a constant number before into the</strong> <code class="language-plaintext highlighter-rouge">%eax</code> <strong>register before calling the</strong> <code class="language-plaintext highlighter-rouge">int</code> <strong>instruction in</strong> <code class="language-plaintext highlighter-rouge">usys.h</code>. Now we retrieve that number from the trapframe so that we can call the corresponding system calls. The <code class="language-plaintext highlighter-rouge">%eax</code> register is also used for return values which is why we assign it back after we invoke the <code class="language-plaintext highlighter-rouge">syscalls</code>.</p>
+
+<p>With this, we are done with all we need to know about how system calls are handled. Now we will add a system call of our own.</p>
+
+<hr>
+
+<h2 id="adding-a-system-call">Adding a System Call</h2>
+
+<p>We will a system call <code class="language-plaintext highlighter-rouge">getreadcount</code> which will count how many times the <code class="language-plaintext highlighter-rouge">read</code> system call has been called<code class="language-plaintext highlighter-rouge">.</code></p>
+
+<p>First, let’s add our system calls logic in <code class="language-plaintext highlighter-rouge">sysfile.c</code></p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: sysfile.c</span>
+
+<span class="kt">int</span> <span class="n">readcount</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="c1">// readcount will be incremented each time read() is called</span>
+<span class="k">struct</span> <span class="n">spinlock</span> <span class="n">readlock</span><span class="p">;</span> <span class="c1">// for thread-safe</span>
+
+<span class="c1">// init the lock</span>
+<span class="kt">void</span> <span class="nf">sysinit</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">initlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">readlock</span><span class="p">,</span> <span class="s">"read"</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">int</span>
+<span class="nf">sys_getreadcount</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">acquire</span><span class="p">(</span><span class="o">&amp;</span><span class="n">readlock</span><span class="p">);</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="n">readcount</span><span class="p">;</span>
+    <span class="n">release</span><span class="p">(</span><span class="o">&amp;</span><span class="n">readlock</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">count</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span>
+<span class="nf">sys_read</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="k">struct</span> <span class="n">file</span> <span class="o">*</span><span class="n">f</span><span class="p">;</span>
+  <span class="kt">int</span> <span class="n">n</span><span class="p">;</span>
+  <span class="kt">char</span> <span class="o">*</span><span class="n">p</span><span class="p">;</span>
+
+  <span class="n">acquire</span><span class="p">(</span><span class="o">&amp;</span><span class="n">readlock</span><span class="p">);</span>
+  <span class="n">readcount</span><span class="o">++</span><span class="p">;</span>
+  <span class="n">release</span><span class="p">(</span><span class="o">&amp;</span><span class="n">readlock</span><span class="p">);</span>
+
+  <span class="k">if</span><span class="p">(</span><span class="n">argfd</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">f</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">argint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">n</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">argptr</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">p</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+  <span class="k">return</span> <span class="n">fileread</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">n</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Next, we will define our system call number for <code class="language-plaintext highlighter-rouge">getreadcount</code>()</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE: syscall.h</span>
+<span class="c1">// System call numbers</span>
+<span class="cp">#define SYS_fork    1
+#define SYS_exit    2
+#define SYS_wait    3
+#define SYS_pipe    4
+#define SYS_read    5
+#define SYS_kill    6
+#define SYS_exec    7
+#define SYS_fstat   8
+#define SYS_chdir   9
+#define SYS_dup    10
+#define SYS_getpid 11
+#define SYS_sbrk   12
+#define SYS_sleep  13
+#define SYS_uptime 14
+#define SYS_open   15
+#define SYS_write  16
+#define SYS_mknod  17
+#define SYS_unlink 18
+#define SYS_link   19
+#define SYS_mkdir  20
+#define SYS_close  21
+</span><span class="c1">// our system call</span>
+<span class="cp">#define SYS_getreadcount 22
+</span></code></pre></div></div>
+
+<p>In syscall.c, we will define an <code class="language-plaintext highlighter-rouge">extern</code> function so that the compiler will make it global, as well as add it into the <code class="language-plaintext highlighter-rouge">syscalls</code> array.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_chdir</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_close</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_dup</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_exec</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_exit</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_fork</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_fstat</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_getpid</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_kill</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_link</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_mkdir</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_mknod</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_open</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_pipe</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_read</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_sbrk</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_sleep</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_unlink</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_wait</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_write</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_uptime</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="c1">// OSTEP project</span>
+<span class="k">extern</span> <span class="kt">int</span> <span class="nf">sys_getreadcount</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">syscalls</span><span class="p">[])(</span><span class="kt">void</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
+<span class="p">[</span><span class="n">SYS_fork</span><span class="p">]</span>    <span class="n">sys_fork</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_exit</span><span class="p">]</span>    <span class="n">sys_exit</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_wait</span><span class="p">]</span>    <span class="n">sys_wait</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_pipe</span><span class="p">]</span>    <span class="n">sys_pipe</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_read</span><span class="p">]</span>    <span class="n">sys_read</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_kill</span><span class="p">]</span>    <span class="n">sys_kill</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_exec</span><span class="p">]</span>    <span class="n">sys_exec</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_fstat</span><span class="p">]</span>   <span class="n">sys_fstat</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_chdir</span><span class="p">]</span>   <span class="n">sys_chdir</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_dup</span><span class="p">]</span>     <span class="n">sys_dup</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_getpid</span><span class="p">]</span>  <span class="n">sys_getpid</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_sbrk</span><span class="p">]</span>    <span class="n">sys_sbrk</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_sleep</span><span class="p">]</span>   <span class="n">sys_sleep</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_uptime</span><span class="p">]</span>  <span class="n">sys_uptime</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_open</span><span class="p">]</span>    <span class="n">sys_open</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_write</span><span class="p">]</span>   <span class="n">sys_write</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_mknod</span><span class="p">]</span>   <span class="n">sys_mknod</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_unlink</span><span class="p">]</span>  <span class="n">sys_unlink</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_link</span><span class="p">]</span>    <span class="n">sys_link</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_mkdir</span><span class="p">]</span>   <span class="n">sys_mkdir</span><span class="p">,</span>
+<span class="p">[</span><span class="n">SYS_close</span><span class="p">]</span>   <span class="n">sys_close</span><span class="p">,</span>
+<span class="c1">// OSTEP project</span>
+<span class="p">[</span><span class="n">SYS_getreadcount</span><span class="p">]</span> <span class="n">sys_getreadcount</span><span class="p">,</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<p>With this, we are done with adding code in kernel code. We expose this function to the user. In <code class="language-plaintext highlighter-rouge">user.h,</code> we define <code class="language-plaintext highlighter-rouge">getreadcount() s</code>o that users can call this function. We also add an entry in <code class="language-plaintext highlighter-rouge">usys.S</code>, this file will generate the stub for user programs to call or function.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE user.h</span>
+<span class="c1">// system calls</span>
+<span class="kt">int</span> <span class="nf">fork</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">exit</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="n">__attribute__</span><span class="p">((</span><span class="n">noreturn</span><span class="p">));</span>
+<span class="kt">int</span> <span class="nf">wait</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">pipe</span><span class="p">(</span><span class="kt">int</span><span class="o">*</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">write</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="k">const</span> <span class="kt">void</span><span class="o">*</span><span class="p">,</span> <span class="kt">int</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">read</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">void</span><span class="o">*</span><span class="p">,</span> <span class="kt">int</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">close</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">kill</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">exec</span><span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">,</span> <span class="kt">char</span><span class="o">**</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">open</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span><span class="p">,</span> <span class="kt">int</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">mknod</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span><span class="p">,</span> <span class="kt">short</span><span class="p">,</span> <span class="kt">short</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">unlink</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">fstat</span><span class="p">(</span><span class="kt">int</span> <span class="n">fd</span><span class="p">,</span> <span class="k">struct</span> <span class="n">stat</span><span class="o">*</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">link</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span><span class="o">*</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">mkdir</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">chdir</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">dup</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">getpid</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="kt">char</span><span class="o">*</span> <span class="nf">sbrk</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">sleep</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">uptime</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="c1">// OSTEP project</span>
+<span class="kt">int</span> <span class="nf">getreadcount</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+</code></pre></div></div>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE usys.S</span>
+<span class="cp">#include</span> <span class="cpf">"syscall.h"</span><span class="cp">
+#include</span> <span class="cpf">"traps.h"</span><span class="cp">
+</span>
+<span class="cp">#define SYSCALL(name) \
+  .globl name; \
+  name: \
+    movl $SYS_ ## name, %eax; \
+    int $T_SYSCALL; \
+    ret
+</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">fork</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">exit</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">wait</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">pipe</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">read</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">write</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">close</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">kill</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">exec</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">open</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">mknod</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">unlink</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">fstat</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">mkdir</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">chdir</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">dup</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">getpid</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">sbrk</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">sleep</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">uptime</span><span class="p">)</span>
+<span class="n">SYSCALL</span><span class="p">(</span><span class="n">getreadcount</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Now we can write a user program to test our system call. Define a C code file in the xv6 source code. You will need to update the <code class="language-plaintext highlighter-rouge">Makefile</code> so that this file will be compiled into xv6.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FILE test_1.c</span>
+<span class="cp">#include</span> <span class="cpf">"types.h"</span><span class="cp">
+#include</span> <span class="cpf">"stat.h"</span><span class="cp">
+#include</span> <span class="cpf">"user.h"</span><span class="cp">
+</span>
+<span class="kt">int</span>
+<span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="n">argv</span><span class="p">[])</span> <span class="p">{</span>
+  <span class="kt">int</span> <span class="n">x1</span> <span class="o">=</span> <span class="n">getreadcount</span><span class="p">();</span>
+  <span class="kt">int</span> <span class="n">x2</span> <span class="o">=</span> <span class="n">getreadcount</span><span class="p">();</span>
+  <span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+  <span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+  <span class="kt">int</span> <span class="n">x3</span> <span class="o">=</span> <span class="n">getreadcount</span><span class="p">();</span>
+  <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+  <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">1000</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+    <span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+  <span class="p">}</span>
+  <span class="kt">int</span> <span class="n">x4</span> <span class="o">=</span> <span class="n">getreadcount</span><span class="p">();</span>
+  <span class="n">printf</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s">"XV6_TEST_OUTPUT %d %d %d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">x2</span><span class="o">-</span><span class="n">x1</span><span class="p">,</span> <span class="n">x3</span><span class="o">-</span><span class="n">x2</span><span class="p">,</span> <span class="n">x4</span><span class="o">-</span><span class="n">x3</span><span class="p">);</span>
+  <span class="n">exit</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Update the <code class="language-plaintext highlighter-rouge">UPROGS</code> in our xv6 Makefile. Then run <code class="language-plaintext highlighter-rouge">make qemu-nox</code>. Type <code class="language-plaintext highlighter-rouge">ls</code> to see all files, you should see <strong>test_1</strong>. Run <strong>test_1</strong> to see what it prints out.</p>
+
+<div class="language-makefile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">UPROGS</span><span class="o">=</span><span class="se">\</span>
+ _cat<span class="se">\</span>
+ _echo<span class="se">\</span>
+ _forktest<span class="se">\</span>
+ _grep<span class="se">\</span>
+ _init<span class="se">\</span>
+ _kill<span class="se">\</span>
+ _ln<span class="se">\</span>
+ _ls<span class="se">\</span>
+ _mkdir<span class="se">\</span>
+ _rm<span class="se">\</span>
+ _sh<span class="se">\</span>
+ _stressfs<span class="se">\</span>
+ _usertests<span class="se">\</span>
+ _wc<span class="se">\</span>
+ _zombie<span class="se">\</span>
+ _test_1<span class="se">\</span>
+</code></pre></div></div>
+
+<p>This concludes the first ever blog written by me. I hope I was able to deliver what I understand to you. If something is wrong, please leave a comment.</p>
+
+<hr>
+
+<h2 id="resources-references">Resources, references</h2>
+
+<ul>
+  <li>
+    <p><a href="https://pages.cs.wisc.edu/~remzi/OSTEP/" target="_blank">https://pages.cs.wisc.edu/~remzi/OSTEP/</a></p>
+  </li>
+  <li>
+    <p><a href="https://github.com/palladian1/xv6-annotated" target="_blank">https://github.com/palladian1/xv6-annotated</a></p>
+  </li>
+  <li>
+    <p><a href="https://github.com/mit-pdos/xv6-public" target="_blank">https://github.com/mit-pdos/xv6-public</a></p>
+  </li>
+  <li>
+    <p><a href="https://github.com/remzi-arpacidusseau/ostep-projects/tree/master/initial-xv6" target="_blank">https://github.com/remzi-arpacidusseau/ostep-projects/tree/master/initial-xv6</a></p>
+  </li>
+</ul>
+</body></html>
+            <!-- <p>This line appears after every note.</p> -->
+        </content>
+
+        <side style="font-size: 0.9em">
+            <h3 style="margin-bottom: 1em">Notes mentioning this note</h3>
+            
+            <div
+                style="
+                    display: grid;
+                    grid-gap: 1em;
+                    grid-template-columns: repeat(1fr);
+                "
+            >
+                
+                <div class="backlink-box">
+                    <a
+                        class="internal-link"
+                        href="/xv6-scheduler-and-context-switch"
+                        >xv6 scheduler and context switch</a
+                    ><br />
+                    <div style="font-size: 0.9em">
+                        Hacking the xv6 kernel scheduling algorithm
+
+                    </div>
+                </div>
+                
+            </div>
+            
+        </side>
+    </div>
+</article>
+
+<hr />
+
+<p>
+    Here are all the notes in this blog, along with their links, visualized as a
+    graph.
+</p>
+
+<style>
+  .links line {
+    stroke: #ccc;
+    opacity: 0.5;
+  }
+
+  .nodes circle {
+    cursor: pointer;
+    fill: #8b88e6;
+    transition: all 0.15s ease-out;
+  }
+
+  .text text {
+    cursor: pointer;
+    fill: #333;
+    text-shadow: -1px -1px 0 #fafafabb, 1px -1px 0 #fafafabb, -1px 1px 0 #fafafabb, 1px 1px 0 #fafafabb;
+  }
+
+  .nodes [active],
+  .text [active] {
+    cursor: pointer;
+    fill: black;
+  }
+
+  .inactive {
+    opacity: 0.1;
+    transition: all 0.15s ease-out;
+  }
+
+  #graph-wrapper {
+    background: #fcfcfc;
+    border-radius: 4px;
+    height: auto;
+  }
+  
+  #graph-wrapper > svg {
+    max-width: 100%;
+    display: block;
+  }
+</style>
+
+<div id="graph-wrapper">
+  <script>
+    window.addEventListener("load", loadGraph);
+
+    function loadGraph() {
+      var oScript = document.createElement("script");
+      oScript.src = "https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js";
+      oScript.crossOrigin = 'anonymous';
+      oScript.integrity =
+        "sha512-FHsFVKQ/T1KWJDGSbrUhTJyS1ph3eRrxI228ND0EGaEp6v4a/vGwPWd3Dtd/+9cI7ccofZvl/wulICEurHN1pg==";
+      document.body.appendChild(oScript);
+      oScript.onload = () => {
+        const MINIMAL_NODE_SIZE = 8;
+        const MAX_NODE_SIZE = 12;
+        const ACTIVE_RADIUS_FACTOR = 1.5;
+        const STROKE = 1;
+        const FONT_SIZE = 16;
+        const TICKS = 200;
+        const FONT_BASELINE = 40;
+        const MAX_LABEL_LENGTH = 50;
+
+        const graphData = {"edges":[{"source":"120118543211599104101100117108101114329711010032991111101161011201163211511910511699104","target":"65100100105110103329732115121115116101109329997108108321161113212011854"},{"source":"83105109112108101328467803283101114118101114456710810510111011632112971141163250443211111610410111432991111109911711411410111011632831011141181011143268101115105103110115","target":"83105109112108101328467803283101114118101114456710810510111011632112971141163249"}],"nodes":[{"id":"6610112111111010032771171081161051121141119910111511510511010346464632771171081161051161041141019710010511010332116104101328311711079833275101114110101108","path":"/sunos-5-0-multithreading","label":"Beyond Multiprocessing... Multithreading the SunOS Kernel"},{"id":"7797112821011001179910158328310510911210810510210510110032689711697328011411199101115115105110103321111103276971141031013267108117115116101114115","path":"/mapreduce","label":"MapReduce: Simplified Data Processing on Large Clusters"},{"id":"65100100105110103329732115121115116101109329997108108321161113212011854","path":"/adding-a-system-call-to-xv6","label":"Adding a system call to xv6"},{"id":"120118543211599104101100117108101114329711010032991111101161011201163211511910511699104","path":"/xv6-scheduler-and-context-switch","label":"xv6 scheduler and context switch"},{"id":"72979910710511010332120118543211297103101321169798108101","path":"/hacking-xv6-page-table","label":"Hacking xv6 page table"},{"id":"7010510810132734779","path":"/1-file-io","label":"File I/O"},{"id":"83105109112108101328467803283101114118101114456710810510111011632112971141163249","path":"/2-simple-tcp-server-client-1","label":"Simple TCP Server-Client part 1"},{"id":"83105109112108101328467803283101114118101114456710810510111011632112971141163250443211111610410111432991111109911711411410111011632831011141181011143268101115105103110115","path":"/3-simple-tcp-server-client-2-other-concurrent-server-designs","label":"Simple TCP Server-Client part 2, other concurrent Server Designs"}]}
+        let nodesData = graphData.nodes;
+        let linksData = graphData.edges;
+
+        const nodeSize = {};
+
+        const updateNodeSize = () => {
+          nodesData.forEach((el) => {
+            let weight =
+              3 *
+              Math.sqrt(
+                linksData.filter((l) => l.source.id === el.id || l.target.id === el.id)
+                  .length + 1
+              );
+            if (weight < MINIMAL_NODE_SIZE) {
+              weight = MINIMAL_NODE_SIZE;
+            } else if (weight > MAX_NODE_SIZE) {
+              weight = MAX_NODE_SIZE;
+            }
+            nodeSize[el.id] = weight;
+          });
+        };
+
+        const onClick = (d) => {
+          window.location = d.path
+        };
+
+        const onMouseover = function (d) {
+          const relatedNodesSet = new Set();
+          linksData
+            .filter((n) => n.target.id == d.id || n.source.id == d.id)
+            .forEach((n) => {
+              relatedNodesSet.add(n.target.id);
+              relatedNodesSet.add(n.source.id);
+            });
+
+          node.attr("class", (node_d) => {
+            if (node_d.id !== d.id && !relatedNodesSet.has(node_d.id)) {
+              return "inactive";
+            }
+            return "";
+          });
+
+          link.attr("class", (link_d) => {
+            if (link_d.source.id !== d.id && link_d.target.id !== d.id) {
+              return "inactive";
+            }
+            return "";
+          });
+
+          link.attr("stroke-width", (link_d) => {
+            if (link_d.source.id === d.id || link_d.target.id === d.id) {
+              return STROKE * 4;
+            }
+            return STROKE;
+          });
+          text.attr("class", (text_d) => {
+            if (text_d.id !== d.id && !relatedNodesSet.has(text_d.id)) {
+              return "inactive";
+            }
+            return "";
+          });
+        };
+
+        const onMouseout = function (d) {
+          node.attr("class", "");
+          link.attr("class", "");
+          text.attr("class", "");
+          link.attr("stroke-width", STROKE);
+        };
+
+        const sameNodes = (previous, next) => {
+          if (next.length !== previous.length) {
+            return false;
+          }
+
+          const map = new Map();
+          for (const node of previous) {
+            map.set(node.id, node.label);
+          }
+
+          for (const node of next) {
+            const found = map.get(node.id);
+            if (!found || found !== node.title) {
+              return false;
+            }
+          }
+
+          return true;
+        };
+
+        const sameEdges = (previous, next) => {
+          if (next.length !== previous.length) {
+            return false;
+          }
+
+          const set = new Set();
+          for (const edge of previous) {
+            set.add(`${edge.source.id}-${edge.target.id}`);
+          }
+
+          for (const edge of next) {
+            if (!set.has(`${edge.source.id}-${edge.target.id}`)) {
+              return false;
+            }
+          }
+
+          return true;
+        };
+
+        const graphWrapper = document.getElementById('graph-wrapper')
+        const element = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        element.setAttribute("width", graphWrapper.getBoundingClientRect().width);
+        element.setAttribute("height", window.innerHeight * 0.8);
+        graphWrapper.appendChild(element);
+
+        const reportWindowSize = () => {
+          element.setAttribute("width", window.innerWidth);
+          element.setAttribute("height", window.innerHeight);
+        };
+
+        window.onresize = reportWindowSize;
+
+        const svg = d3.select("svg");
+        const width = Number(svg.attr("width"));
+        const height = Number(svg.attr("height"));
+        let zoomLevel = 1;
+
+        const simulation = d3
+          .forceSimulation(nodesData)
+          .force("forceX", d3.forceX().x(width / 2))
+          .force("forceY", d3.forceY().y(height / 2))
+          .force("charge", d3.forceManyBody())
+          .force(
+            "link",
+            d3
+              .forceLink(linksData)
+              .id((d) => d.id)
+              .distance(70)
+          )
+          .force("center", d3.forceCenter(width / 2, height / 2))
+          .force("collision", d3.forceCollide().radius(80))
+          .stop();
+
+        const g = svg.append("g");
+        let link = g.append("g").attr("class", "links").selectAll(".link");
+        let node = g.append("g").attr("class", "nodes").selectAll(".node");
+        let text = g.append("g").attr("class", "text").selectAll(".text");
+
+        const resize = () => {
+          if (d3.event) {
+            const scale = d3.event.transform;
+            zoomLevel = scale.k;
+            g.attr("transform", scale);
+          }
+
+          const zoomOrKeep = (value) => (zoomLevel >= 1 ? value / zoomLevel : value);
+
+          const font = Math.max(Math.round(zoomOrKeep(FONT_SIZE)), 1);
+
+          text.attr("font-size", (d) => font);
+          text.attr("y", (d) => d.y - zoomOrKeep(FONT_BASELINE) + 8);
+          link.attr("stroke-width", zoomOrKeep(STROKE));
+          node.attr("r", (d) => {
+            return zoomOrKeep(nodeSize[d.id]);
+          });
+          svg
+            .selectAll("circle")
+            .filter((_d, i, nodes) => d3.select(nodes[i]).attr("active"))
+            .attr("r", (d) => zoomOrKeep(ACTIVE_RADIUS_FACTOR * nodeSize[d.id]));
+        };
+
+        const ticked = () => {
+          node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+          text
+            .attr("x", (d) => d.x)
+            .attr("y", (d) => d.y - (FONT_BASELINE - nodeSize[d.id]) / zoomLevel);
+          link
+            .attr("x1", (d) => d.source.x)
+            .attr("y1", (d) => d.source.y)
+            .attr("x2", (d) => d.target.x)
+            .attr("y2", (d) => d.target.y);
+        };
+
+        const restart = () => {
+          updateNodeSize();
+          node = node.data(nodesData, (d) => d.id);
+          node.exit().remove();
+          node = node
+            .enter()
+            .append("circle")
+            .attr("r", (d) => {
+              return nodeSize[d.id];
+            })
+            .on("click", onClick)
+            .on("mouseover", onMouseover)
+            .on("mouseout", onMouseout)
+            .merge(node);
+
+          link = link.data(linksData, (d) => `${d.source.id}-${d.target.id}`);
+          link.exit().remove();
+          link = link.enter().append("line").attr("stroke-width", STROKE).merge(link);
+
+          text = text.data(nodesData, (d) => d.label);
+          text.exit().remove();
+          text = text
+            .enter()
+            .append("text")
+            .text((d) => shorten(d.label.replace(/_*/g, ""), MAX_LABEL_LENGTH))
+            .attr("font-size", `${FONT_SIZE}px`)
+            .attr("text-anchor", "middle")
+            .attr("alignment-baseline", "central")
+            .on("click", onClick)
+            .on("mouseover", onMouseover)
+            .on("mouseout", onMouseout)
+            .merge(text);
+
+          node.attr("active", (d) => isCurrentPath(d.path) ? true : null);
+          text.attr("active", (d) => isCurrentPath(d.path) ? true : null);
+
+          simulation.nodes(nodesData);
+          simulation.force("link").links(linksData);
+          simulation.alpha(1).restart();
+          simulation.stop();
+
+          for (let i = 0; i < TICKS; i++) {
+            simulation.tick();
+          }
+
+          ticked();
+        };
+
+        const zoomHandler = d3.zoom().scaleExtent([0.2, 3]).on("zoom", resize);
+
+        zoomHandler(svg);
+        restart();
+
+        function isCurrentPath(notePath) {
+          return window.location.pathname.includes(notePath)
+        }
+
+        function shorten(str, maxLen, separator = ' ') {
+          if (str.length <= maxLen) return str;
+          return str.substr(0, str.lastIndexOf(separator, maxLen)) + '...';
+        }
+      }
+    }
+  </script>
+</div>
+
+</main>
+      <footer><a class="internal-link" href="/about">An Ha is me</a>
+</footer>
+    </div>
+
+    <!-- That file is not particularly elegant. This will need a refactor at some point. -->
+<style>
+  content a.internal-link {
+    border-color: #8b88e6;
+    background-color: #efefff;
+  }
+
+  #tooltip-wrapper {
+    background: white;
+    padding: 1em;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    position: absolute;
+    width: 400px;
+    height: 250px;
+    font-size: 0.8em;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+    opacity: 0;
+    transition: opacity 100ms;
+  }
+
+  #tooltip-wrapper:after {
+		content: "";
+		position: absolute;
+		z-index: 1;
+		bottom: 0;
+		left: 0;
+		pointer-events: none;
+		background-image: linear-gradient(to bottom, rgba(255,255,255, 0), rgba(255,255,255, 1) 90%);
+		width: 100%;
+		height: 75px;
+  }
+</style>
+
+<div style="opacity: 0; display: none;" id='tooltip-wrapper'>
+  <div id='tooltip-content'>
+  </div>
+</div>
+
+<iframe style="display: none; height: 0; width: 0;" id='link-preview-iframe' src="">
+</iframe>
+
+<script>
+  var opacityTimeout;
+  var contentTimeout;
+  var transitionDurationMs = 100;
+
+  var iframe = document.getElementById('link-preview-iframe')
+  var tooltipWrapper = document.getElementById('tooltip-wrapper')
+  var tooltipContent = document.getElementById('tooltip-content')
+
+  var linkHistories = {};
+
+  function hideTooltip() {
+    opacityTimeout = setTimeout(function() {
+      tooltipWrapper.style.opacity = 0;
+      contentTimeout = setTimeout(function() {
+        tooltipContent.innerHTML = '';
+        tooltipWrapper.style.display = 'none';
+      }, transitionDurationMs + 1);
+    }, transitionDurationMs)
+  }
+
+  function showTooltip(event) {
+    var elem = event.target;
+    var elem_props = elem.getClientRects()[elem.getClientRects().length - 1];
+    var top = window.pageYOffset || document.documentElement.scrollTop
+
+    if (event.target.host === window.location.host) {
+      if (!linkHistories[event.target.href]) {
+        iframe.src = event.target.href
+        iframe.onload = function() {
+          tooltipContentHtml = ''
+          tooltipContentHtml += '<div style="font-weight: bold;">' + iframe.contentWindow.document.querySelector('h1').innerHTML + '</div>'
+          tooltipContentHtml += iframe.contentWindow.document.querySelector('content').innerHTML
+
+          tooltipContent.innerHTML = tooltipContentHtml
+          linkHistories[event.target.href] = tooltipContentHtml
+
+          tooltipWrapper.style.display = 'block';
+          setTimeout(function() {
+            tooltipWrapper.style.opacity = 1;
+          }, 1)
+        } 
+      } else {
+        tooltipContent.innerHTML = linkHistories[event.target.href]
+        tooltipWrapper.style.display = 'block';
+        setTimeout(function() {
+          tooltipWrapper.style.opacity = 1;
+        }, 1)
+      }
+
+
+      tooltipWrapper.style.left = elem_props.left - (tooltipWrapper.offsetWidth / 2) + (elem_props.width / 2) + "px";
+      if ((window.innerHeight - elem_props.top) < (tooltipWrapper.offsetHeight)) {
+          tooltipWrapper.style.top = elem_props.top + top - tooltipWrapper.offsetHeight - 10 + "px";
+      } else if ((window.innerHeight - elem_props.top) > (tooltipWrapper.offsetHeight)) {
+          tooltipWrapper.style.top = elem_props.top + top + 35 + "px";
+      }
+
+      if ((elem_props.left + (elem_props.width / 2)) < (tooltipWrapper.offsetWidth / 2)) {
+          tooltipWrapper.style.left = "10px";
+      } else if ((document.body.clientWidth - elem_props.left - (elem_props.width / 2)) < (tooltipWrapper.offsetWidth / 2)) {
+          tooltipWrapper.style.left = document.body.clientWidth - tooltipWrapper.offsetWidth - 20 + "px";
+      }
+    }
+  }
+
+  function setupListeners(linkElement) {
+    linkElement.addEventListener('mouseleave', function(_event) {
+      hideTooltip();
+    });
+
+    tooltipWrapper.addEventListener('mouseleave', function(_event) {
+      hideTooltip();
+    });
+
+    linkElement.addEventListener('touchend', function(_event) {
+      hideTooltip();
+    });
+
+    tooltipWrapper.addEventListener('touchend', function(_event) {
+      hideTooltip();
+    });
+
+    linkElement.addEventListener('mouseenter', function(event) {
+      clearTimeout(opacityTimeout);
+      clearTimeout(contentTimeout);
+      showTooltip(event);
+    });
+
+    tooltipWrapper.addEventListener('mouseenter', function(event) {
+      clearTimeout(opacityTimeout);
+      clearTimeout(contentTimeout);
+    });
+  }
+
+  document.querySelectorAll('content a').forEach(setupListeners);
+</script>
+
+  </body>
+</html>

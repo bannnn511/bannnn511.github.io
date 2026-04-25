@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  <meta charset="UTF-8">
+
+  <link rel="canonical" href="http://localhost:4000/sunos-5-0-multithreading" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="description" content="Motivation">
+
+  <meta property="og:site_name" content="AN HA">
+
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
+
+  <link rel="stylesheet" href="/styles.css">
+
+  
+  <meta property="og:description" content="Motivation"/>
+  
+
+  
+  <meta property="og:title" content="Beyond Multiprocessing... Multithreading the SunOS Kernel">
+  <meta property="og:type" content="article">
+  
+
+  
+  <meta property="article:published_time" content="1992-06-08T00:00:00+07:00">
+  <meta property="article:author" content="http://localhost:4000/">
+  
+
+  <meta property="og:url" content="http://localhost:4000/sunos-5-0-multithreading" />
+
+  
+
+  <title>
+    
+      Beyond Multiprocessing... Multithreading the SunOS Kernel &mdash; AN HA
+    
+  </title>
+</head>
+
+  <body>
+    <nav><div class="site-nav">
+    <a class="internal-link" href="/"><b>AN HA</b></a>
+    <a class="internal-link nav-item" href="/research-papers">Research Papers</a>
+</div>
+
+<style>
+  .site-nav {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  
+  .nav-item {
+    font-size: 0.9em;
+  }
+</style></nav>
+    <div class="wrapper">
+      <main><article>
+    <div>
+        <h1>Beyond Multiprocessing... Multithreading the SunOS Kernel</h1>
+        <time datetime="2025-04-14T16:02:02+07:00"
+            > Last updated on April 14, 2025 
+        </time>
+    </div>
+
+    <div id="notes-entry-container">
+    <!-- <div> -->
+        <content>
+            <html><body>
+<h2 id="motivation">Motivation</h2>
+
+<ul>
+  <li>Preemptable</li>
+  <li>Real-time scheduling</li>
+  <li>Multiprocessor</li>
+  <li>User-level threading</li>
+  <li>Highly concurrent</li>
+  <li>Responsive operation</li>
+</ul>
+
+<h2 id="kernel-architecture">Kernel Architecture</h2>
+
+<ul>
+  <li>Dispatch kernel thread onto CPU</li>
+  <li>Context switching between kernel threads are inexpensive because they are on the same address space</li>
+  <li>Kernel threads are fully preemptable, can be scheduled by any CPU</li>
+  <li>Use synchronization primitives to prevent priority inversion
+    <ul>
+      <li>Lower-priority thread cannot block higher-priority thread</li>
+    </ul>
+  </li>
+  <li>User kernel thread to provide asynchronous kernel activity (async writes,…)
+    <ul>
+      <li>Increase potential concurrency activity (can be handled by other CPUs)</li>
+    </ul>
+  </li>
+  <li>Interrupts are handled by kernel thread
+    <ul>
+      <li>Interrupt threads will be blocked if they encounter a locked synchronization variable</li>
+    </ul>
+  </li>
+  <li>Support of threads (light weight process)
+    <ul>
+      <li>Bridge between user threads and kernel threads</li>
+      <li>Kernel supports the execution of LWP by associating a kernel thread with each LWP</li>
+      <li>LWPs have a kernel thread, not all kernel threads have a LWP</li>
+      <li>LWP M:N kernel thread</li>
+    </ul>
+  </li>
+  <li>A user-level library uses LWPs to implement user-level threads</li>
+</ul>
+
+<h2 id="data-structure">Data Structure</h2>
+
+<h3 id="traditional">Traditional</h3>
+
+<ul>
+  <li>
+<code class="language-plaintext highlighter-rouge">user</code> and <code class="language-plaintext highlighter-rouge">proc</code> contained all kernel data for process
+    <ul>
+      <li>
+<code class="language-plaintext highlighter-rouge">user</code> data is swappable</li>
+      <li>
+<code class="language-plaintext highlighter-rouge">proc</code> data is not swappable</li>
+    </ul>
+  </li>
+  <li>
+<code class="language-plaintext highlighter-rouge">processor</code> data held in global variables and data structure</li>
+  <li>Kernel stack of the process (swappable) was allocated with the <code class="language-plaintext highlighter-rouge">user</code> structure in user area</li>
+</ul>
+
+<h3 id="restructured-kernel">Restructured Kernel</h3>
+
+<ul>
+  <li>Data:
+    <ul>
+      <li>Data with each LWP, LWP’s kernel thread</li>
+      <li>Data with each process</li>
+      <li>Data with each processor</li>
+    </ul>
+  </li>
+  <li>
+<code class="language-plaintext highlighter-rouge">proc</code>: per-process data
+    <ul>
+      <li>List of kernel threads</li>
+      <li>Pointer to process address space</li>
+      <li>User credentials</li>
+      <li>List of signal handlers</li>
+      <li>Vestigial <code class="language-plaintext highlighter-rouge">user</code> structure (no longer need to swap)</li>
+    </ul>
+  </li>
+  <li>
+<code class="language-plaintext highlighter-rouge">lwp</code>: per-lwp data
+    <ul>
+      <li>PCB</li>
+      <li>Syscall args</li>
+      <li>Resource usage</li>
+      <li>Pointer to kernel threads, process structures</li>
+      <li>
+<strong>Kernel stack</strong> of the thread is allocated with the LWP data structure in <strong>swappable area</strong>
+        <ul>
+          <li>Kernel stack is swappable but kernel thread is not</li>
+          <li>Kernel stack is used to save user-level thread states</li>
+          <li>Kernel stack is specific to execution of a particular LWP -&gt; need to be saved together</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+  <li>
+<code class="language-plaintext highlighter-rouge">kthread</code>: per-thread-data (<strong>not swappable</strong>)
+    <ul>
+      <li>Registers</li>
+      <li>Scheduling class</li>
+      <li>Dispatch queue links</li>
+      <li>Pointers to the <strong>stack and the associated LWP, process and CPU structures</strong>
+</li>
+      <li>Threads are linked on a list of threads for the process + on a list of all existing threads in the system</li>
+    </ul>
+  </li>
+  <li>
+<code class="language-plaintext highlighter-rouge">cpu</code>
+    <ul>
+      <li>Pointers to the currently executing thread</li>
+      <li>Idle thread</li>
+      <li>Current dispatching and interrupt handling information</li>
+    </ul>
+  </li>
+  <li>To speed up access to the thread, LWP, process and CPU, use <code class="language-plaintext highlighter-rouge">%g7</code> registers to point to the current thread structure</li>
+</ul>
+
+<h2 id="scheduling">Scheduling</h2>
+
+<ul>
+  <li>Operates on thread instead of process</li>
+  <li>Classes: time-sharing, real-time (fixed priority)</li>
+  <li>Dispatcher chooses threads with greatest priority</li>
+  <li>Preemption is disabled on small portion of code
+    <ul>
+      <li>SunOS 5 is fully preemptable which means kernel thread can be interrupted by higher priority kernel threads</li>
+      <li>
+<strong>BUT</strong>: preemption is disabled to protect critical section to protect shared kernel data structure</li>
+      <li>Further details can be found in [Khanna 1992]</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="system-threads">System Threads</h2>
+
+<ul>
+  <li>Scheduled like any other threads, usually belong to the system scheduling class</li>
+  <li>Have no need for LWP structures</li>
+  <li>Thread structure and stack can be allocated together -&gt; non swappable</li>
+  <li>Segment driver:
+    <ul>
+      <li>Handle stack allocation</li>
+      <li>Handle virtual memory allocations</li>
+      <li>Protect against stack overflow</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="mutex">Mutex</h2>
+
+<ul>
+  <li>Held for short interval</li>
+  <li>Mutexes are not recursive
+    <ul>
+      <li>Owner cannot call again</li>
+    </ul>
+  </li>
+  <li>Caller must also release lock</li>
+  <li>Mutex:
+    <ul>
+      <li>Adaptive mutex (default policy)
+        <ul>
+          <li>Spins while owner is running</li>
+          <li>Poll owner status in the spin-loop</li>
+          <li>Sleep when owner is not running (owner may be interrupted by other threads -&gt; owner sleeps -&gt; cannot proceed to release lock)</li>
+        </ul>
+      </li>
+      <li>Spin mutex
+        <ul>
+          <li>Spin to check if lock has become available</li>
+          <li>
+<strong>Interrupt is disabled</strong> to prevent deadlock</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="interrupts">Interrupts</h2>
+
+<h3 id="traditional-1">Traditional</h3>
+
+<ul>
+  <li>Interrupts level must be raised before lock, lower after lock is released
+    <ul>
+      <li>Expensive operations</li>
+      <li>Subsystem are interdependent, interrupt lines and priority can be shared with other modules</li>
+    </ul>
+  </li>
+</ul>
+
+<h3 id="sunos-5">SunOS 5</h3>
+
+<ul>
+  <li>Interrupts as asynchronous, high priority threads that will be dispatched</li>
+  <li>Enabled interrupt handlers to sleep if required</li>
+</ul>
+
+<h3 id="implementing-interrupts-as-threads">Implementing Interrupts as Threads</h3>
+
+<h4 id="previous-sunos-version">Previous SunOS Version</h4>
+
+<ul>
+  <li>Interrupted process is held captive until interrupts returns</li>
+  <li>Interrupts are handled on the kernel stack of the interrupted process</li>
+  <li>Kernel sync with interrupt handler by blocking out interrupts in while in critical sections</li>
+</ul>
+
+<h4 id="sunos-5-1">SunOS 5</h4>
+
+<ul>
+  <li>Preallocate interrupt threads</li>
+  <li>Kernel do minimal amount of works to switch to interrupt threads -&gt; not fully kernel thread yet</li>
+  <li>The interrupted thread is pinned and cannot be processed by CPU</li>
+  <li>If interrupt thread is blocked -&gt; save states -&gt; become full-fledged thread -&gt; can be schedule -&gt; returns to pinned thread</li>
+</ul>
+
+<h3 id="interrupt-thread-cost">Interrupt Thread Cost</h3>
+
+<ul>
+  <li>40 instructions</li>
+  <li>Convert into real thread only when there is contention</li>
+  <li>Preallocated for each active interrupt level (memory usage) -&gt; 8KB</li>
+</ul>
+
+<h2 id="summary">Summary</h2>
+
+<ul>
+  <li>SunOS 5.0 is a multithreaded and symmetric multiprocessor version of the SVR4 kernel</li>
+  <li>Features:
+    <ul>
+      <li>Fully preemptible, real-time kernel</li>
+      <li>High degree of concurrency on symmetric multiprocessors</li>
+      <li>Support for user threads</li>
+      <li>Interrupts handled as independent threads</li>
+      <li>Adaptive mutual-exclusion locks</li>
+    </ul>
+  </li>
+</ul>
+</body></html>
+            <!-- <p>This line appears after every note.</p> -->
+        </content>
+
+        <side style="font-size: 0.9em">
+            <h3 style="margin-bottom: 1em">Notes mentioning this note</h3>
+            
+
+            <div style="font-size: 0.9em">
+                <p>There are no notes linking to this note.</p>
+            </div>
+            
+        </side>
+    </div>
+</article>
+
+<hr />
+
+<p>
+    Here are all the notes in this blog, along with their links, visualized as a
+    graph.
+</p>
+
+<style>
+  .links line {
+    stroke: #ccc;
+    opacity: 0.5;
+  }
+
+  .nodes circle {
+    cursor: pointer;
+    fill: #8b88e6;
+    transition: all 0.15s ease-out;
+  }
+
+  .text text {
+    cursor: pointer;
+    fill: #333;
+    text-shadow: -1px -1px 0 #fafafabb, 1px -1px 0 #fafafabb, -1px 1px 0 #fafafabb, 1px 1px 0 #fafafabb;
+  }
+
+  .nodes [active],
+  .text [active] {
+    cursor: pointer;
+    fill: black;
+  }
+
+  .inactive {
+    opacity: 0.1;
+    transition: all 0.15s ease-out;
+  }
+
+  #graph-wrapper {
+    background: #fcfcfc;
+    border-radius: 4px;
+    height: auto;
+  }
+  
+  #graph-wrapper > svg {
+    max-width: 100%;
+    display: block;
+  }
+</style>
+
+<div id="graph-wrapper">
+  <script>
+    window.addEventListener("load", loadGraph);
+
+    function loadGraph() {
+      var oScript = document.createElement("script");
+      oScript.src = "https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js";
+      oScript.crossOrigin = 'anonymous';
+      oScript.integrity =
+        "sha512-FHsFVKQ/T1KWJDGSbrUhTJyS1ph3eRrxI228ND0EGaEp6v4a/vGwPWd3Dtd/+9cI7ccofZvl/wulICEurHN1pg==";
+      document.body.appendChild(oScript);
+      oScript.onload = () => {
+        const MINIMAL_NODE_SIZE = 8;
+        const MAX_NODE_SIZE = 12;
+        const ACTIVE_RADIUS_FACTOR = 1.5;
+        const STROKE = 1;
+        const FONT_SIZE = 16;
+        const TICKS = 200;
+        const FONT_BASELINE = 40;
+        const MAX_LABEL_LENGTH = 50;
+
+        const graphData = {"edges":[{"source":"120118543211599104101100117108101114329711010032991111101161011201163211511910511699104","target":"65100100105110103329732115121115116101109329997108108321161113212011854"},{"source":"83105109112108101328467803283101114118101114456710810510111011632112971141163250443211111610410111432991111109911711411410111011632831011141181011143268101115105103110115","target":"83105109112108101328467803283101114118101114456710810510111011632112971141163249"}],"nodes":[{"id":"6610112111111010032771171081161051121141119910111511510511010346464632771171081161051161041141019710010511010332116104101328311711079833275101114110101108","path":"/sunos-5-0-multithreading","label":"Beyond Multiprocessing... Multithreading the SunOS Kernel"},{"id":"7797112821011001179910158328310510911210810510210510110032689711697328011411199101115115105110103321111103276971141031013267108117115116101114115","path":"/mapreduce","label":"MapReduce: Simplified Data Processing on Large Clusters"},{"id":"65100100105110103329732115121115116101109329997108108321161113212011854","path":"/adding-a-system-call-to-xv6","label":"Adding a system call to xv6"},{"id":"120118543211599104101100117108101114329711010032991111101161011201163211511910511699104","path":"/xv6-scheduler-and-context-switch","label":"xv6 scheduler and context switch"},{"id":"72979910710511010332120118543211297103101321169798108101","path":"/hacking-xv6-page-table","label":"Hacking xv6 page table"},{"id":"7010510810132734779","path":"/1-file-io","label":"File I/O"},{"id":"83105109112108101328467803283101114118101114456710810510111011632112971141163249","path":"/2-simple-tcp-server-client-1","label":"Simple TCP Server-Client part 1"},{"id":"83105109112108101328467803283101114118101114456710810510111011632112971141163250443211111610410111432991111109911711411410111011632831011141181011143268101115105103110115","path":"/3-simple-tcp-server-client-2-other-concurrent-server-designs","label":"Simple TCP Server-Client part 2, other concurrent Server Designs"}]}
+        let nodesData = graphData.nodes;
+        let linksData = graphData.edges;
+
+        const nodeSize = {};
+
+        const updateNodeSize = () => {
+          nodesData.forEach((el) => {
+            let weight =
+              3 *
+              Math.sqrt(
+                linksData.filter((l) => l.source.id === el.id || l.target.id === el.id)
+                  .length + 1
+              );
+            if (weight < MINIMAL_NODE_SIZE) {
+              weight = MINIMAL_NODE_SIZE;
+            } else if (weight > MAX_NODE_SIZE) {
+              weight = MAX_NODE_SIZE;
+            }
+            nodeSize[el.id] = weight;
+          });
+        };
+
+        const onClick = (d) => {
+          window.location = d.path
+        };
+
+        const onMouseover = function (d) {
+          const relatedNodesSet = new Set();
+          linksData
+            .filter((n) => n.target.id == d.id || n.source.id == d.id)
+            .forEach((n) => {
+              relatedNodesSet.add(n.target.id);
+              relatedNodesSet.add(n.source.id);
+            });
+
+          node.attr("class", (node_d) => {
+            if (node_d.id !== d.id && !relatedNodesSet.has(node_d.id)) {
+              return "inactive";
+            }
+            return "";
+          });
+
+          link.attr("class", (link_d) => {
+            if (link_d.source.id !== d.id && link_d.target.id !== d.id) {
+              return "inactive";
+            }
+            return "";
+          });
+
+          link.attr("stroke-width", (link_d) => {
+            if (link_d.source.id === d.id || link_d.target.id === d.id) {
+              return STROKE * 4;
+            }
+            return STROKE;
+          });
+          text.attr("class", (text_d) => {
+            if (text_d.id !== d.id && !relatedNodesSet.has(text_d.id)) {
+              return "inactive";
+            }
+            return "";
+          });
+        };
+
+        const onMouseout = function (d) {
+          node.attr("class", "");
+          link.attr("class", "");
+          text.attr("class", "");
+          link.attr("stroke-width", STROKE);
+        };
+
+        const sameNodes = (previous, next) => {
+          if (next.length !== previous.length) {
+            return false;
+          }
+
+          const map = new Map();
+          for (const node of previous) {
+            map.set(node.id, node.label);
+          }
+
+          for (const node of next) {
+            const found = map.get(node.id);
+            if (!found || found !== node.title) {
+              return false;
+            }
+          }
+
+          return true;
+        };
+
+        const sameEdges = (previous, next) => {
+          if (next.length !== previous.length) {
+            return false;
+          }
+
+          const set = new Set();
+          for (const edge of previous) {
+            set.add(`${edge.source.id}-${edge.target.id}`);
+          }
+
+          for (const edge of next) {
+            if (!set.has(`${edge.source.id}-${edge.target.id}`)) {
+              return false;
+            }
+          }
+
+          return true;
+        };
+
+        const graphWrapper = document.getElementById('graph-wrapper')
+        const element = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        element.setAttribute("width", graphWrapper.getBoundingClientRect().width);
+        element.setAttribute("height", window.innerHeight * 0.8);
+        graphWrapper.appendChild(element);
+
+        const reportWindowSize = () => {
+          element.setAttribute("width", window.innerWidth);
+          element.setAttribute("height", window.innerHeight);
+        };
+
+        window.onresize = reportWindowSize;
+
+        const svg = d3.select("svg");
+        const width = Number(svg.attr("width"));
+        const height = Number(svg.attr("height"));
+        let zoomLevel = 1;
+
+        const simulation = d3
+          .forceSimulation(nodesData)
+          .force("forceX", d3.forceX().x(width / 2))
+          .force("forceY", d3.forceY().y(height / 2))
+          .force("charge", d3.forceManyBody())
+          .force(
+            "link",
+            d3
+              .forceLink(linksData)
+              .id((d) => d.id)
+              .distance(70)
+          )
+          .force("center", d3.forceCenter(width / 2, height / 2))
+          .force("collision", d3.forceCollide().radius(80))
+          .stop();
+
+        const g = svg.append("g");
+        let link = g.append("g").attr("class", "links").selectAll(".link");
+        let node = g.append("g").attr("class", "nodes").selectAll(".node");
+        let text = g.append("g").attr("class", "text").selectAll(".text");
+
+        const resize = () => {
+          if (d3.event) {
+            const scale = d3.event.transform;
+            zoomLevel = scale.k;
+            g.attr("transform", scale);
+          }
+
+          const zoomOrKeep = (value) => (zoomLevel >= 1 ? value / zoomLevel : value);
+
+          const font = Math.max(Math.round(zoomOrKeep(FONT_SIZE)), 1);
+
+          text.attr("font-size", (d) => font);
+          text.attr("y", (d) => d.y - zoomOrKeep(FONT_BASELINE) + 8);
+          link.attr("stroke-width", zoomOrKeep(STROKE));
+          node.attr("r", (d) => {
+            return zoomOrKeep(nodeSize[d.id]);
+          });
+          svg
+            .selectAll("circle")
+            .filter((_d, i, nodes) => d3.select(nodes[i]).attr("active"))
+            .attr("r", (d) => zoomOrKeep(ACTIVE_RADIUS_FACTOR * nodeSize[d.id]));
+        };
+
+        const ticked = () => {
+          node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+          text
+            .attr("x", (d) => d.x)
+            .attr("y", (d) => d.y - (FONT_BASELINE - nodeSize[d.id]) / zoomLevel);
+          link
+            .attr("x1", (d) => d.source.x)
+            .attr("y1", (d) => d.source.y)
+            .attr("x2", (d) => d.target.x)
+            .attr("y2", (d) => d.target.y);
+        };
+
+        const restart = () => {
+          updateNodeSize();
+          node = node.data(nodesData, (d) => d.id);
+          node.exit().remove();
+          node = node
+            .enter()
+            .append("circle")
+            .attr("r", (d) => {
+              return nodeSize[d.id];
+            })
+            .on("click", onClick)
+            .on("mouseover", onMouseover)
+            .on("mouseout", onMouseout)
+            .merge(node);
+
+          link = link.data(linksData, (d) => `${d.source.id}-${d.target.id}`);
+          link.exit().remove();
+          link = link.enter().append("line").attr("stroke-width", STROKE).merge(link);
+
+          text = text.data(nodesData, (d) => d.label);
+          text.exit().remove();
+          text = text
+            .enter()
+            .append("text")
+            .text((d) => shorten(d.label.replace(/_*/g, ""), MAX_LABEL_LENGTH))
+            .attr("font-size", `${FONT_SIZE}px`)
+            .attr("text-anchor", "middle")
+            .attr("alignment-baseline", "central")
+            .on("click", onClick)
+            .on("mouseover", onMouseover)
+            .on("mouseout", onMouseout)
+            .merge(text);
+
+          node.attr("active", (d) => isCurrentPath(d.path) ? true : null);
+          text.attr("active", (d) => isCurrentPath(d.path) ? true : null);
+
+          simulation.nodes(nodesData);
+          simulation.force("link").links(linksData);
+          simulation.alpha(1).restart();
+          simulation.stop();
+
+          for (let i = 0; i < TICKS; i++) {
+            simulation.tick();
+          }
+
+          ticked();
+        };
+
+        const zoomHandler = d3.zoom().scaleExtent([0.2, 3]).on("zoom", resize);
+
+        zoomHandler(svg);
+        restart();
+
+        function isCurrentPath(notePath) {
+          return window.location.pathname.includes(notePath)
+        }
+
+        function shorten(str, maxLen, separator = ' ') {
+          if (str.length <= maxLen) return str;
+          return str.substr(0, str.lastIndexOf(separator, maxLen)) + '...';
+        }
+      }
+    }
+  </script>
+</div>
+
+</main>
+      <footer><a class="internal-link" href="/about">An Ha is me</a>
+</footer>
+    </div>
+
+    <!-- That file is not particularly elegant. This will need a refactor at some point. -->
+<style>
+  content a.internal-link {
+    border-color: #8b88e6;
+    background-color: #efefff;
+  }
+
+  #tooltip-wrapper {
+    background: white;
+    padding: 1em;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    position: absolute;
+    width: 400px;
+    height: 250px;
+    font-size: 0.8em;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+    opacity: 0;
+    transition: opacity 100ms;
+  }
+
+  #tooltip-wrapper:after {
+		content: "";
+		position: absolute;
+		z-index: 1;
+		bottom: 0;
+		left: 0;
+		pointer-events: none;
+		background-image: linear-gradient(to bottom, rgba(255,255,255, 0), rgba(255,255,255, 1) 90%);
+		width: 100%;
+		height: 75px;
+  }
+</style>
+
+<div style="opacity: 0; display: none;" id='tooltip-wrapper'>
+  <div id='tooltip-content'>
+  </div>
+</div>
+
+<iframe style="display: none; height: 0; width: 0;" id='link-preview-iframe' src="">
+</iframe>
+
+<script>
+  var opacityTimeout;
+  var contentTimeout;
+  var transitionDurationMs = 100;
+
+  var iframe = document.getElementById('link-preview-iframe')
+  var tooltipWrapper = document.getElementById('tooltip-wrapper')
+  var tooltipContent = document.getElementById('tooltip-content')
+
+  var linkHistories = {};
+
+  function hideTooltip() {
+    opacityTimeout = setTimeout(function() {
+      tooltipWrapper.style.opacity = 0;
+      contentTimeout = setTimeout(function() {
+        tooltipContent.innerHTML = '';
+        tooltipWrapper.style.display = 'none';
+      }, transitionDurationMs + 1);
+    }, transitionDurationMs)
+  }
+
+  function showTooltip(event) {
+    var elem = event.target;
+    var elem_props = elem.getClientRects()[elem.getClientRects().length - 1];
+    var top = window.pageYOffset || document.documentElement.scrollTop
+
+    if (event.target.host === window.location.host) {
+      if (!linkHistories[event.target.href]) {
+        iframe.src = event.target.href
+        iframe.onload = function() {
+          tooltipContentHtml = ''
+          tooltipContentHtml += '<div style="font-weight: bold;">' + iframe.contentWindow.document.querySelector('h1').innerHTML + '</div>'
+          tooltipContentHtml += iframe.contentWindow.document.querySelector('content').innerHTML
+
+          tooltipContent.innerHTML = tooltipContentHtml
+          linkHistories[event.target.href] = tooltipContentHtml
+
+          tooltipWrapper.style.display = 'block';
+          setTimeout(function() {
+            tooltipWrapper.style.opacity = 1;
+          }, 1)
+        } 
+      } else {
+        tooltipContent.innerHTML = linkHistories[event.target.href]
+        tooltipWrapper.style.display = 'block';
+        setTimeout(function() {
+          tooltipWrapper.style.opacity = 1;
+        }, 1)
+      }
+
+
+      tooltipWrapper.style.left = elem_props.left - (tooltipWrapper.offsetWidth / 2) + (elem_props.width / 2) + "px";
+      if ((window.innerHeight - elem_props.top) < (tooltipWrapper.offsetHeight)) {
+          tooltipWrapper.style.top = elem_props.top + top - tooltipWrapper.offsetHeight - 10 + "px";
+      } else if ((window.innerHeight - elem_props.top) > (tooltipWrapper.offsetHeight)) {
+          tooltipWrapper.style.top = elem_props.top + top + 35 + "px";
+      }
+
+      if ((elem_props.left + (elem_props.width / 2)) < (tooltipWrapper.offsetWidth / 2)) {
+          tooltipWrapper.style.left = "10px";
+      } else if ((document.body.clientWidth - elem_props.left - (elem_props.width / 2)) < (tooltipWrapper.offsetWidth / 2)) {
+          tooltipWrapper.style.left = document.body.clientWidth - tooltipWrapper.offsetWidth - 20 + "px";
+      }
+    }
+  }
+
+  function setupListeners(linkElement) {
+    linkElement.addEventListener('mouseleave', function(_event) {
+      hideTooltip();
+    });
+
+    tooltipWrapper.addEventListener('mouseleave', function(_event) {
+      hideTooltip();
+    });
+
+    linkElement.addEventListener('touchend', function(_event) {
+      hideTooltip();
+    });
+
+    tooltipWrapper.addEventListener('touchend', function(_event) {
+      hideTooltip();
+    });
+
+    linkElement.addEventListener('mouseenter', function(event) {
+      clearTimeout(opacityTimeout);
+      clearTimeout(contentTimeout);
+      showTooltip(event);
+    });
+
+    tooltipWrapper.addEventListener('mouseenter', function(event) {
+      clearTimeout(opacityTimeout);
+      clearTimeout(contentTimeout);
+    });
+  }
+
+  document.querySelectorAll('content a').forEach(setupListeners);
+</script>
+
+  </body>
+</html>

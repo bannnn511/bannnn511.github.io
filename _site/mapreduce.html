@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  <meta charset="UTF-8">
+
+  <link rel="canonical" href="http://localhost:4000/mapreduce" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="description" content="Abstract  processing and generating large data sets  map: process a K/V pair -&gt; generate a set of intermediate K/V pairs  reduce: merge intermediate K/V p...">
+
+  <meta property="og:site_name" content="AN HA">
+
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
+
+  <link rel="stylesheet" href="/styles.css">
+
+  
+  <meta property="og:description" content="Abstract  processing and generating large data sets  map: process a K/V pair -&gt; generate a set of intermediate K/V pairs  reduce: merge intermediate K/V p..."/>
+  
+
+  
+  <meta property="og:title" content="MapReduce: Simplified Data Processing on Large Clusters">
+  <meta property="og:type" content="article">
+  
+
+  
+  <meta property="article:published_time" content="2004-01-01T00:00:00+07:00">
+  <meta property="article:author" content="http://localhost:4000/">
+  
+
+  <meta property="og:url" content="http://localhost:4000/mapreduce" />
+
+  
+
+  <title>
+    
+      MapReduce: Simplified Data Processing on Large Clusters &mdash; AN HA
+    
+  </title>
+</head>
+
+  <body>
+    <nav><div class="site-nav">
+    <a class="internal-link" href="/"><b>AN HA</b></a>
+    <a class="internal-link nav-item" href="/research-papers">Research Papers</a>
+</div>
+
+<style>
+  .site-nav {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  
+  .nav-item {
+    font-size: 0.9em;
+  }
+</style></nav>
+    <div class="wrapper">
+      <main><article>
+    <div>
+        <h1>MapReduce: Simplified Data Processing on Large Clusters</h1>
+        <time datetime="2025-04-22T14:03:33+07:00"
+            > Last updated on April 22, 2025 
+        </time>
+    </div>
+
+    <div id="notes-entry-container">
+    <!-- <div> -->
+        <content>
+            <html><body>
+<h2 id="abstract">Abstract</h2>
+<ul>
+  <li>processing and generating large data sets</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">map</code>: process a K/V pair -&gt; generate a set of intermediate K/V pairs</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">reduce</code>: merge intermediate K/V pairs</li>
+  <li>Programs:
+    <ul>
+      <li>automatically parallelized</li>
+      <li>executed on a large cluster of machines</li>
+    </ul>
+  </li>
+  <li>Runtime:
+    <ul>
+      <li>partitioning input data</li>
+      <li>scheduling program’s execution across a set of machine</li>
+      <li>handling machine failures</li>
+      <li>managing the required inter-machine communication</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="motivation">Motivation</h2>
+<ul>
+  <li>input data is large + computations have to be distributed
+    <h3 id="new-abstraction">New abstraction</h3>
+  </li>
+  <li>express simple computation</li>
+  <li>hides the messy details of parallelization</li>
+  <li>fault tolerance</li>
+  <li>data distribution + load balancing in library</li>
+</ul>
+
+<h2 id="programming-model">Programming model</h2>
+
+<ul>
+  <li>computation takes a set of <strong>input</strong> K/V pairs -&gt; produces a set of <strong>output</strong> K/V pairs</li>
+  <li>user expresses the computation as two functions: <code class="language-plaintext highlighter-rouge">Map</code> and <code class="language-plaintext highlighter-rouge">Reduce</code>
+</li>
+  <li>
+    <h3 id="example">Example</h3>
+    <p>```
+map(String key, String value):
+// key: document name
+// value: document contents
+for each word w in value:
+    EmitIntermediate(w, “1”);</p>
+  </li>
+</ul>
+
+<p>reduce(String key, Iterator values):
+	// key: a word
+	// values: a list of counts
+	int result = 0;
+	for each v in values:
+		result += ParseInt(v);
+	Emit(AsString(result));</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+## Types
+</code></pre></div></div>
+<p>map(k1,v1) -&gt; list(k2,v2)
+reduce(k2, list(v2)) -&gt; list(v2)
+```</p>
+
+<h2 id="more-examples">More examples</h2>
+<ul>
+  <li>Distributed Grep</li>
+  <li>Count of URL Access Frequency</li>
+  <li>Reverse Web-Link Graph</li>
+  <li>Term-Vector per Host</li>
+  <li>Inverted Index</li>
+  <li>Distributed Sort</li>
+</ul>
+
+<h2 id="implementation">Implementation</h2>
+
+<ul>
+  <li>Different implementations of MapReduce interface are possible, depends on the environment
+    <ul>
+      <li>small shared-memory machine</li>
+      <li>large NUMA multi-processor</li>
+      <li>large collection of networked machines</li>
+    </ul>
+  </li>
+</ul>
+
+<h3 id="execution-overview">Execution Overview</h3>
+
+<ul>
+  <li>
+<code class="language-plaintext highlighter-rouge">Map</code>: distributed across multiple machines by automatically partitioning the input</li>
+  <li>Input splits can be processes in parallel by <strong>different machines</strong>
+</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">Reduce</code> invocations are distributed by partitioning the intermediate key  into <code class="language-plaintext highlighter-rouge">R</code> pieces
+    <ul>
+      <li>using partitioning function <code class="language-plaintext highlighter-rouge">hash(key) mod R</code>
+</li>
+      <li>number of partitions <code class="language-plaintext highlighter-rouge">R</code> + <code class="language-plaintext highlighter-rouge">partition function</code> are specified by the user</li>
+    </ul>
+  </li>
+  <li>Sequence:
+    <ol>
+      <li>MapReduce library in the user program first split the input files into M pieces
+        <ol>
+          <li>starts up many copies of the program on a cluster of machines</li>
+        </ol>
+      </li>
+      <li>
+<code class="language-plaintext highlighter-rouge">Master</code>: a special copies of the program
+        <ol>
+          <li>other copies are <code class="language-plaintext highlighter-rouge">workers</code>
+</li>
+          <li>
+<code class="language-plaintext highlighter-rouge">master</code> assign works to the <code class="language-plaintext highlighter-rouge">workers</code>
+</li>
+          <li>
+<code class="language-plaintext highlighter-rouge">M Map</code> tasks and <code class="language-plaintext highlighter-rouge">R Reduce</code>tasks to assign</li>
+          <li>
+<code class="language-plaintext highlighter-rouge">master</code> picks idle workers and assign each one a <code class="language-plaintext highlighter-rouge">map</code> task and a <code class="language-plaintext highlighter-rouge">reduce</code> task</li>
+        </ol>
+      </li>
+      <li>
+<code class="language-plaintext highlighter-rouge">worker</code> who is assigned a <code class="language-plaintext highlighter-rouge">map</code> task
+        <ol>
+          <li>reads the contents of the corresponding input split</li>
+          <li>parse K/V pairs and passes each pairs to the user-defined <code class="language-plaintext highlighter-rouge">Map</code>
+</li>
+          <li>the intermediate K/V pairs produced my the <code class="language-plaintext highlighter-rouge">Map</code> function are buffered in memory</li>
+        </ol>
+      </li>
+      <li>periodically, the buffered pairs are written to local disk, partitioned into R regions
+     1. locations of these buffers pairs on the local disk are passed back to the <code class="language-plaintext highlighter-rouge">master</code>
+     2. <code class="language-plaintext highlighter-rouge">master</code> forwards theses locations to the <code class="language-plaintext highlighter-rouge">reduce workers</code>
+</li>
+      <li>
+<code class="language-plaintext highlighter-rouge">reduce worker</code> is notified by the master
+        <ol>
+          <li>use <code class="language-plaintext highlighter-rouge">rpc</code> to read the buffered data from local disk of the map workers</li>
+          <li>
+<code class="language-plaintext highlighter-rouge">reduce worker</code> sorts all intermediate data by the intermediate keys
+            <ol>
+              <li>different keys map to the same reduce task</li>
+              <li>if data is to large -&gt; an external sort is used</li>
+            </ol>
+          </li>
+        </ol>
+      </li>
+      <li>
+<code class="language-plaintext highlighter-rouge">reduce worker</code> iterates over the sorted intermediate data
+        <ol>
+          <li>for each unique key -&gt; passed the key and the corresponding set of intermediate values to the users`s <code class="language-plaintext highlighter-rouge">Reduce</code> function</li>
+          <li>the output the <code class="language-plaintext highlighter-rouge">Reduce</code> function is appended to the final output file for this reduce partition</li>
+        </ol>
+      </li>
+      <li>when all <code class="language-plaintext highlighter-rouge">map</code> tasks and <code class="language-plaintext highlighter-rouge">reduce</code> tasks have been completed -&gt; <code class="language-plaintext highlighter-rouge">master</code> wakes up user program, the <code class="language-plaintext highlighter-rouge">MapReduce</code> returns back to user code</li>
+    </ol>
+  </li>
+  <li>Output of the execution are stored in the R output files -&gt; pass as inputs to other MapReduce call
+    <h3 id="master-data-structures">Master Data structures</h3>
+  </li>
+  <li>
+<code class="language-plaintext highlighter-rouge">master</code> stores the state (<code class="language-plaintext highlighter-rouge">idle</code>, <code class="language-plaintext highlighter-rouge">in-progress</code>, <code class="language-plaintext highlighter-rouge">completed</code>) for each tasks + identity of the worker machines</li>
+  <li>for each <strong><em><code class="language-plaintext highlighter-rouge">completed</code></em></strong> tasks, masters stores the location and sizes of the R intermediate <strong>file regions</strong> of produced by map task
+    <ul>
+      <li>update to these regions -&gt; signal <code class="language-plaintext highlighter-rouge">map</code> task as <code class="language-plaintext highlighter-rouge">completed</code>
+</li>
+      <li>pushed to workers that have <code class="language-plaintext highlighter-rouge">in-progress</code> <code class="language-plaintext highlighter-rouge">reduce</code> tasks</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="fault-tolerance">Fault Tolerance</h2>
+<h3 id="worker-failure">Worker Failure</h3>
+<ul>
+  <li>
+<code class="language-plaintext highlighter-rouge">master</code> pings every worker periodically
+    <ul>
+      <li>no response from <code class="language-plaintext highlighter-rouge">worker</code> -&gt; marks the <code class="language-plaintext highlighter-rouge">worker</code> as failed</li>
+      <li>
+<code class="language-plaintext highlighter-rouge">completed map</code> tasks -&gt;<code class="language-plaintext highlighter-rouge">woker</code> reset back to <code class="language-plaintext highlighter-rouge">idle</code> -&gt; eligible for scheduling</li>
+      <li>
+<code class="language-plaintext highlighter-rouge">map</code> or <code class="language-plaintext highlighter-rouge">reduce</code> task in progress on failed worker -&gt; reset to <code class="language-plaintext highlighter-rouge">idle</code> -&gt; rescheduling</li>
+      <li>
+<code class="language-plaintext highlighter-rouge">completed map</code> tasks are re-executed on a failure (worker machine) because output is stored on local disks of failed machine</li>
+      <li>
+<code class="language-plaintext highlighter-rouge">completed reduce</code> do not need to be re-executed since output is stored in a global file system</li>
+      <li>
+<code class="language-plaintext highlighter-rouge">reduce</code> tasks that have not read data from failed worker will read from new worker</li>
+    </ul>
+  </li>
+  <li>resilient to large-scale worker failures</li>
+</ul>
+
+<h3 id="master-failure">Master Failure</h3>
+<ul>
+  <li>single master -&gt; failure is unlikely -&gt; aborts the MapReduce computation if the master fails
+    <h3 id="semantics-in-the-presence-of-failures">Semantics in the Presence of Failures</h3>
+  </li>
+  <li>Deterministic functions
+    <ul>
+      <li>when <code class="language-plaintext highlighter-rouge">map</code> and <code class="language-plaintext highlighter-rouge">reduce</code> are deterministic functions -&gt; produces the same output as a <strong>non-faulting sequential execution</strong>
+        <ul>
+          <li>rely on atomic commits of <code class="language-plaintext highlighter-rouge">map</code> and <code class="language-plaintext highlighter-rouge">reduce</code> task</li>
+        </ul>
+      </li>
+      <li>Mechanism:
+        <ul>
+          <li>in-progress task writes its output to private temporary file
+            <ul>
+              <li>
+<code class="language-plaintext highlighter-rouge">map</code> : R files (one per reduce task)</li>
+              <li>
+<code class="language-plaintext highlighter-rouge">reduce</code>: one file</li>
+            </ul>
+          </li>
+          <li>when task completes: <code class="language-plaintext highlighter-rouge">worker</code> sends a message to <code class="language-plaintext highlighter-rouge">master</code> and include the names of the R temp files in the message
+            <ul>
+              <li>if master have already received a <strong>completion</strong> message of already <strong>completed</strong> map -&gt; ignore message
+                <ul>
+                  <li>Potential for Duplicate Messages: It’s possible that a <code class="language-plaintext highlighter-rouge">worker</code> might complete a map task and send a completion message to the <code class="language-plaintext highlighter-rouge">master</code> before the <code class="language-plaintext highlighter-rouge">master</code> detects the <code class="language-plaintext highlighter-rouge">worker</code>’s failure. Alternatively, a failed <code class="language-plaintext highlighter-rouge">worker</code> might recover and resend a completion message for a task that has already been re-executed and completed on another worker</li>
+                </ul>
+              </li>
+              <li>otherwise, recored the names of R files in master data structure</li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+  <li>Non-deterministic
+    <ul>
+      <li>output will look like it came from a single, consistent run of your non-deterministic code</li>
+      <li>
+<strong>However</strong>, different reduce task may end up with different results</li>
+    </ul>
+  </li>
+</ul>
+
+<h3 id="locality">Locality</h3>
+<ul>
+  <li>takes the location information of the input files -&gt; map task on a machine that contains replica of the corresponding input data
+    <h2 id="backup-tasks">Backup Tasks</h2>
+  </li>
+  <li>
+<strong>straggler</strong>: machine that takes unusually long time to complete on of the last computation</li>
+  <li>solution:
+    <ul>
+      <li>when MapReduce operation is close to completion -&gt; backup executions of the remaining <code class="language-plaintext highlighter-rouge">in-progress</code> tasks</li>
+      <li>task is mark as <code class="language-plaintext highlighter-rouge">completed</code>: either primary or backup execution completes</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="combiner-function">Combiner function</h2>
+<ul>
+  <li>significant repetition in the intermediate keys produced by each map task
+  -&gt; allow user to specify an optional <code class="language-plaintext highlighter-rouge">Combiner</code> function that does partial merging of data before send over network</li>
+  <li>same code is used for both <code class="language-plaintext highlighter-rouge">Combiner</code> and <code class="language-plaintext highlighter-rouge">Reduce</code> function
+    <ul>
+      <li>
+<code class="language-plaintext highlighter-rouge">Combiner</code>: output written to intermediate file</li>
+      <li>
+<code class="language-plaintext highlighter-rouge">Reduce</code>: output written to final output file</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="side-effects">Side-effects</h2>
+<ul>
+  <li>rely on application writer for atomic and idempotent -&gt; writes to a temporary file and atomically renames this file</li>
+  <li>do not support atomic two-phase commits of multiple output files produced by a single task -&gt; multiple output files with cross-file consistency should be <strong>deterministic</strong>
+</li>
+</ul>
+
+<h2 id="skipping-bad-records">Skipping Bad Records</h2>
+<ul>
+  <li>acceptable to ignore a few records (statistical analysis on a large data set) -&gt; skip records in order to make forward progress</li>
+  <li>worker installs a signal handler that caches segmentation violations and bus errors</li>
+</ul>
+
+<h2 id="how-does-the-mapreduce-implementation-at-google-achieve-scalability-and-performance-on-large-clusters">How does the MapReduce implementation at Google achieve scalability and performance on large clusters?</h2>
+
+<p>Google’s implementation of MapReduce is designed to run on large clusters of commodity PCs. <strong>Scalability</strong> is achieved through automatic parallelization and distribution of tasks across thousands of machines.</p>
+
+<p><strong>Performance</strong> is enhanced by several techniques:</p>
+<ul>
+  <li>
+<strong>Data locality optimization</strong>: Reading input data from local disks to minimize network overhead.</li>
+  <li>
+<strong>Combiner function</strong> (optional): Reduces the amount of intermediate data transferred between map and reduce phases.</li>
+  <li>
+<strong>Dynamic task assignment</strong>: Tasks are assigned to workers dynamically for better load balancing.</li>
+</ul>
+
+<p>Additionally, the system includes:</p>
+<ul>
+  <li>
+<strong>Fault tolerance mechanisms</strong> to handle machine failures gracefully.</li>
+  <li>
+<strong>Backup tasks</strong> to mitigate the effects of slow or “straggler” machines.</li>
+</ul>
+
+<p>These features ensure efficient processing of massive datasets with high scalability and performance.</p>
+</body></html>
+            <!-- <p>This line appears after every note.</p> -->
+        </content>
+
+        <side style="font-size: 0.9em">
+            <h3 style="margin-bottom: 1em">Notes mentioning this note</h3>
+            
+
+            <div style="font-size: 0.9em">
+                <p>There are no notes linking to this note.</p>
+            </div>
+            
+        </side>
+    </div>
+</article>
+
+<hr />
+
+<p>
+    Here are all the notes in this blog, along with their links, visualized as a
+    graph.
+</p>
+
+<style>
+  .links line {
+    stroke: #ccc;
+    opacity: 0.5;
+  }
+
+  .nodes circle {
+    cursor: pointer;
+    fill: #8b88e6;
+    transition: all 0.15s ease-out;
+  }
+
+  .text text {
+    cursor: pointer;
+    fill: #333;
+    text-shadow: -1px -1px 0 #fafafabb, 1px -1px 0 #fafafabb, -1px 1px 0 #fafafabb, 1px 1px 0 #fafafabb;
+  }
+
+  .nodes [active],
+  .text [active] {
+    cursor: pointer;
+    fill: black;
+  }
+
+  .inactive {
+    opacity: 0.1;
+    transition: all 0.15s ease-out;
+  }
+
+  #graph-wrapper {
+    background: #fcfcfc;
+    border-radius: 4px;
+    height: auto;
+  }
+  
+  #graph-wrapper > svg {
+    max-width: 100%;
+    display: block;
+  }
+</style>
+
+<div id="graph-wrapper">
+  <script>
+    window.addEventListener("load", loadGraph);
+
+    function loadGraph() {
+      var oScript = document.createElement("script");
+      oScript.src = "https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js";
+      oScript.crossOrigin = 'anonymous';
+      oScript.integrity =
+        "sha512-FHsFVKQ/T1KWJDGSbrUhTJyS1ph3eRrxI228ND0EGaEp6v4a/vGwPWd3Dtd/+9cI7ccofZvl/wulICEurHN1pg==";
+      document.body.appendChild(oScript);
+      oScript.onload = () => {
+        const MINIMAL_NODE_SIZE = 8;
+        const MAX_NODE_SIZE = 12;
+        const ACTIVE_RADIUS_FACTOR = 1.5;
+        const STROKE = 1;
+        const FONT_SIZE = 16;
+        const TICKS = 200;
+        const FONT_BASELINE = 40;
+        const MAX_LABEL_LENGTH = 50;
+
+        const graphData = {"edges":[{"source":"120118543211599104101100117108101114329711010032991111101161011201163211511910511699104","target":"65100100105110103329732115121115116101109329997108108321161113212011854"},{"source":"83105109112108101328467803283101114118101114456710810510111011632112971141163250443211111610410111432991111109911711411410111011632831011141181011143268101115105103110115","target":"83105109112108101328467803283101114118101114456710810510111011632112971141163249"}],"nodes":[{"id":"6610112111111010032771171081161051121141119910111511510511010346464632771171081161051161041141019710010511010332116104101328311711079833275101114110101108","path":"/sunos-5-0-multithreading","label":"Beyond Multiprocessing... Multithreading the SunOS Kernel"},{"id":"7797112821011001179910158328310510911210810510210510110032689711697328011411199101115115105110103321111103276971141031013267108117115116101114115","path":"/mapreduce","label":"MapReduce: Simplified Data Processing on Large Clusters"},{"id":"65100100105110103329732115121115116101109329997108108321161113212011854","path":"/adding-a-system-call-to-xv6","label":"Adding a system call to xv6"},{"id":"120118543211599104101100117108101114329711010032991111101161011201163211511910511699104","path":"/xv6-scheduler-and-context-switch","label":"xv6 scheduler and context switch"},{"id":"72979910710511010332120118543211297103101321169798108101","path":"/hacking-xv6-page-table","label":"Hacking xv6 page table"},{"id":"7010510810132734779","path":"/1-file-io","label":"File I/O"},{"id":"83105109112108101328467803283101114118101114456710810510111011632112971141163249","path":"/2-simple-tcp-server-client-1","label":"Simple TCP Server-Client part 1"},{"id":"83105109112108101328467803283101114118101114456710810510111011632112971141163250443211111610410111432991111109911711411410111011632831011141181011143268101115105103110115","path":"/3-simple-tcp-server-client-2-other-concurrent-server-designs","label":"Simple TCP Server-Client part 2, other concurrent Server Designs"}]}
+        let nodesData = graphData.nodes;
+        let linksData = graphData.edges;
+
+        const nodeSize = {};
+
+        const updateNodeSize = () => {
+          nodesData.forEach((el) => {
+            let weight =
+              3 *
+              Math.sqrt(
+                linksData.filter((l) => l.source.id === el.id || l.target.id === el.id)
+                  .length + 1
+              );
+            if (weight < MINIMAL_NODE_SIZE) {
+              weight = MINIMAL_NODE_SIZE;
+            } else if (weight > MAX_NODE_SIZE) {
+              weight = MAX_NODE_SIZE;
+            }
+            nodeSize[el.id] = weight;
+          });
+        };
+
+        const onClick = (d) => {
+          window.location = d.path
+        };
+
+        const onMouseover = function (d) {
+          const relatedNodesSet = new Set();
+          linksData
+            .filter((n) => n.target.id == d.id || n.source.id == d.id)
+            .forEach((n) => {
+              relatedNodesSet.add(n.target.id);
+              relatedNodesSet.add(n.source.id);
+            });
+
+          node.attr("class", (node_d) => {
+            if (node_d.id !== d.id && !relatedNodesSet.has(node_d.id)) {
+              return "inactive";
+            }
+            return "";
+          });
+
+          link.attr("class", (link_d) => {
+            if (link_d.source.id !== d.id && link_d.target.id !== d.id) {
+              return "inactive";
+            }
+            return "";
+          });
+
+          link.attr("stroke-width", (link_d) => {
+            if (link_d.source.id === d.id || link_d.target.id === d.id) {
+              return STROKE * 4;
+            }
+            return STROKE;
+          });
+          text.attr("class", (text_d) => {
+            if (text_d.id !== d.id && !relatedNodesSet.has(text_d.id)) {
+              return "inactive";
+            }
+            return "";
+          });
+        };
+
+        const onMouseout = function (d) {
+          node.attr("class", "");
+          link.attr("class", "");
+          text.attr("class", "");
+          link.attr("stroke-width", STROKE);
+        };
+
+        const sameNodes = (previous, next) => {
+          if (next.length !== previous.length) {
+            return false;
+          }
+
+          const map = new Map();
+          for (const node of previous) {
+            map.set(node.id, node.label);
+          }
+
+          for (const node of next) {
+            const found = map.get(node.id);
+            if (!found || found !== node.title) {
+              return false;
+            }
+          }
+
+          return true;
+        };
+
+        const sameEdges = (previous, next) => {
+          if (next.length !== previous.length) {
+            return false;
+          }
+
+          const set = new Set();
+          for (const edge of previous) {
+            set.add(`${edge.source.id}-${edge.target.id}`);
+          }
+
+          for (const edge of next) {
+            if (!set.has(`${edge.source.id}-${edge.target.id}`)) {
+              return false;
+            }
+          }
+
+          return true;
+        };
+
+        const graphWrapper = document.getElementById('graph-wrapper')
+        const element = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        element.setAttribute("width", graphWrapper.getBoundingClientRect().width);
+        element.setAttribute("height", window.innerHeight * 0.8);
+        graphWrapper.appendChild(element);
+
+        const reportWindowSize = () => {
+          element.setAttribute("width", window.innerWidth);
+          element.setAttribute("height", window.innerHeight);
+        };
+
+        window.onresize = reportWindowSize;
+
+        const svg = d3.select("svg");
+        const width = Number(svg.attr("width"));
+        const height = Number(svg.attr("height"));
+        let zoomLevel = 1;
+
+        const simulation = d3
+          .forceSimulation(nodesData)
+          .force("forceX", d3.forceX().x(width / 2))
+          .force("forceY", d3.forceY().y(height / 2))
+          .force("charge", d3.forceManyBody())
+          .force(
+            "link",
+            d3
+              .forceLink(linksData)
+              .id((d) => d.id)
+              .distance(70)
+          )
+          .force("center", d3.forceCenter(width / 2, height / 2))
+          .force("collision", d3.forceCollide().radius(80))
+          .stop();
+
+        const g = svg.append("g");
+        let link = g.append("g").attr("class", "links").selectAll(".link");
+        let node = g.append("g").attr("class", "nodes").selectAll(".node");
+        let text = g.append("g").attr("class", "text").selectAll(".text");
+
+        const resize = () => {
+          if (d3.event) {
+            const scale = d3.event.transform;
+            zoomLevel = scale.k;
+            g.attr("transform", scale);
+          }
+
+          const zoomOrKeep = (value) => (zoomLevel >= 1 ? value / zoomLevel : value);
+
+          const font = Math.max(Math.round(zoomOrKeep(FONT_SIZE)), 1);
+
+          text.attr("font-size", (d) => font);
+          text.attr("y", (d) => d.y - zoomOrKeep(FONT_BASELINE) + 8);
+          link.attr("stroke-width", zoomOrKeep(STROKE));
+          node.attr("r", (d) => {
+            return zoomOrKeep(nodeSize[d.id]);
+          });
+          svg
+            .selectAll("circle")
+            .filter((_d, i, nodes) => d3.select(nodes[i]).attr("active"))
+            .attr("r", (d) => zoomOrKeep(ACTIVE_RADIUS_FACTOR * nodeSize[d.id]));
+        };
+
+        const ticked = () => {
+          node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+          text
+            .attr("x", (d) => d.x)
+            .attr("y", (d) => d.y - (FONT_BASELINE - nodeSize[d.id]) / zoomLevel);
+          link
+            .attr("x1", (d) => d.source.x)
+            .attr("y1", (d) => d.source.y)
+            .attr("x2", (d) => d.target.x)
+            .attr("y2", (d) => d.target.y);
+        };
+
+        const restart = () => {
+          updateNodeSize();
+          node = node.data(nodesData, (d) => d.id);
+          node.exit().remove();
+          node = node
+            .enter()
+            .append("circle")
+            .attr("r", (d) => {
+              return nodeSize[d.id];
+            })
+            .on("click", onClick)
+            .on("mouseover", onMouseover)
+            .on("mouseout", onMouseout)
+            .merge(node);
+
+          link = link.data(linksData, (d) => `${d.source.id}-${d.target.id}`);
+          link.exit().remove();
+          link = link.enter().append("line").attr("stroke-width", STROKE).merge(link);
+
+          text = text.data(nodesData, (d) => d.label);
+          text.exit().remove();
+          text = text
+            .enter()
+            .append("text")
+            .text((d) => shorten(d.label.replace(/_*/g, ""), MAX_LABEL_LENGTH))
+            .attr("font-size", `${FONT_SIZE}px`)
+            .attr("text-anchor", "middle")
+            .attr("alignment-baseline", "central")
+            .on("click", onClick)
+            .on("mouseover", onMouseover)
+            .on("mouseout", onMouseout)
+            .merge(text);
+
+          node.attr("active", (d) => isCurrentPath(d.path) ? true : null);
+          text.attr("active", (d) => isCurrentPath(d.path) ? true : null);
+
+          simulation.nodes(nodesData);
+          simulation.force("link").links(linksData);
+          simulation.alpha(1).restart();
+          simulation.stop();
+
+          for (let i = 0; i < TICKS; i++) {
+            simulation.tick();
+          }
+
+          ticked();
+        };
+
+        const zoomHandler = d3.zoom().scaleExtent([0.2, 3]).on("zoom", resize);
+
+        zoomHandler(svg);
+        restart();
+
+        function isCurrentPath(notePath) {
+          return window.location.pathname.includes(notePath)
+        }
+
+        function shorten(str, maxLen, separator = ' ') {
+          if (str.length <= maxLen) return str;
+          return str.substr(0, str.lastIndexOf(separator, maxLen)) + '...';
+        }
+      }
+    }
+  </script>
+</div>
+
+</main>
+      <footer><a class="internal-link" href="/about">An Ha is me</a>
+</footer>
+    </div>
+
+    <!-- That file is not particularly elegant. This will need a refactor at some point. -->
+<style>
+  content a.internal-link {
+    border-color: #8b88e6;
+    background-color: #efefff;
+  }
+
+  #tooltip-wrapper {
+    background: white;
+    padding: 1em;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    position: absolute;
+    width: 400px;
+    height: 250px;
+    font-size: 0.8em;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+    opacity: 0;
+    transition: opacity 100ms;
+  }
+
+  #tooltip-wrapper:after {
+		content: "";
+		position: absolute;
+		z-index: 1;
+		bottom: 0;
+		left: 0;
+		pointer-events: none;
+		background-image: linear-gradient(to bottom, rgba(255,255,255, 0), rgba(255,255,255, 1) 90%);
+		width: 100%;
+		height: 75px;
+  }
+</style>
+
+<div style="opacity: 0; display: none;" id='tooltip-wrapper'>
+  <div id='tooltip-content'>
+  </div>
+</div>
+
+<iframe style="display: none; height: 0; width: 0;" id='link-preview-iframe' src="">
+</iframe>
+
+<script>
+  var opacityTimeout;
+  var contentTimeout;
+  var transitionDurationMs = 100;
+
+  var iframe = document.getElementById('link-preview-iframe')
+  var tooltipWrapper = document.getElementById('tooltip-wrapper')
+  var tooltipContent = document.getElementById('tooltip-content')
+
+  var linkHistories = {};
+
+  function hideTooltip() {
+    opacityTimeout = setTimeout(function() {
+      tooltipWrapper.style.opacity = 0;
+      contentTimeout = setTimeout(function() {
+        tooltipContent.innerHTML = '';
+        tooltipWrapper.style.display = 'none';
+      }, transitionDurationMs + 1);
+    }, transitionDurationMs)
+  }
+
+  function showTooltip(event) {
+    var elem = event.target;
+    var elem_props = elem.getClientRects()[elem.getClientRects().length - 1];
+    var top = window.pageYOffset || document.documentElement.scrollTop
+
+    if (event.target.host === window.location.host) {
+      if (!linkHistories[event.target.href]) {
+        iframe.src = event.target.href
+        iframe.onload = function() {
+          tooltipContentHtml = ''
+          tooltipContentHtml += '<div style="font-weight: bold;">' + iframe.contentWindow.document.querySelector('h1').innerHTML + '</div>'
+          tooltipContentHtml += iframe.contentWindow.document.querySelector('content').innerHTML
+
+          tooltipContent.innerHTML = tooltipContentHtml
+          linkHistories[event.target.href] = tooltipContentHtml
+
+          tooltipWrapper.style.display = 'block';
+          setTimeout(function() {
+            tooltipWrapper.style.opacity = 1;
+          }, 1)
+        } 
+      } else {
+        tooltipContent.innerHTML = linkHistories[event.target.href]
+        tooltipWrapper.style.display = 'block';
+        setTimeout(function() {
+          tooltipWrapper.style.opacity = 1;
+        }, 1)
+      }
+
+
+      tooltipWrapper.style.left = elem_props.left - (tooltipWrapper.offsetWidth / 2) + (elem_props.width / 2) + "px";
+      if ((window.innerHeight - elem_props.top) < (tooltipWrapper.offsetHeight)) {
+          tooltipWrapper.style.top = elem_props.top + top - tooltipWrapper.offsetHeight - 10 + "px";
+      } else if ((window.innerHeight - elem_props.top) > (tooltipWrapper.offsetHeight)) {
+          tooltipWrapper.style.top = elem_props.top + top + 35 + "px";
+      }
+
+      if ((elem_props.left + (elem_props.width / 2)) < (tooltipWrapper.offsetWidth / 2)) {
+          tooltipWrapper.style.left = "10px";
+      } else if ((document.body.clientWidth - elem_props.left - (elem_props.width / 2)) < (tooltipWrapper.offsetWidth / 2)) {
+          tooltipWrapper.style.left = document.body.clientWidth - tooltipWrapper.offsetWidth - 20 + "px";
+      }
+    }
+  }
+
+  function setupListeners(linkElement) {
+    linkElement.addEventListener('mouseleave', function(_event) {
+      hideTooltip();
+    });
+
+    tooltipWrapper.addEventListener('mouseleave', function(_event) {
+      hideTooltip();
+    });
+
+    linkElement.addEventListener('touchend', function(_event) {
+      hideTooltip();
+    });
+
+    tooltipWrapper.addEventListener('touchend', function(_event) {
+      hideTooltip();
+    });
+
+    linkElement.addEventListener('mouseenter', function(event) {
+      clearTimeout(opacityTimeout);
+      clearTimeout(contentTimeout);
+      showTooltip(event);
+    });
+
+    tooltipWrapper.addEventListener('mouseenter', function(event) {
+      clearTimeout(opacityTimeout);
+      clearTimeout(contentTimeout);
+    });
+  }
+
+  document.querySelectorAll('content a').forEach(setupListeners);
+</script>
+
+  </body>
+</html>

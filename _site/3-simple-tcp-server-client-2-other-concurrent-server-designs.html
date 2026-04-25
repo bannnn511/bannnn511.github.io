@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  <meta charset="UTF-8">
+
+  <link rel="canonical" href="http://localhost:4000/3-simple-tcp-server-client-2-other-concurrent-server-designs" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="description" content="Traditional  Concurrent Server Model">
+
+  <meta property="og:site_name" content="AN HA">
+
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
+
+  <link rel="stylesheet" href="/styles.css">
+
+  
+  <meta property="og:description" content="Traditional  Concurrent Server Model"/>
+  
+
+  
+  <meta property="og:title" content="Simple TCP Server-Client part 2, other concurrent Server Designs">
+  <meta property="og:type" content="article">
+  
+
+  
+  <meta property="article:published_time" content="2025-04-05T00:00:00+07:00">
+  <meta property="article:author" content="http://localhost:4000/">
+  
+
+  <meta property="og:url" content="http://localhost:4000/3-simple-tcp-server-client-2-other-concurrent-server-designs" />
+
+  
+
+  <title>
+    
+      Simple TCP Server-Client part 2, other concurrent Server Designs &mdash; AN HA
+    
+  </title>
+</head>
+
+  <body>
+    <nav><div class="site-nav">
+    <a class="internal-link" href="/"><b>AN HA</b></a>
+    <a class="internal-link nav-item" href="/research-papers">Research Papers</a>
+</div>
+
+<style>
+  .site-nav {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  
+  .nav-item {
+    font-size: 0.9em;
+  }
+</style></nav>
+    <div class="wrapper">
+      <main><article>
+    <div>
+        <h1>Simple TCP Server-Client part 2, other concurrent Server Designs</h1>
+        <time datetime="2025-04-26T16:00:22+07:00"
+            > Last updated on April 26, 2025 
+        </time>
+    </div>
+
+    <div id="notes-entry-container">
+    <!-- <div> -->
+        <content>
+            <html><body>
+<h2 id="traditional--concurrent-server-model">Traditional  Concurrent Server Model</h2>
+
+<p>Remember the <code class="language-plaintext highlighter-rouge">accept</code> system calls from the previous <a class="internal-link" href="/2-simple-tcp-server-client-1">2.simple_tcp_server_client 1</a>. This system call will block and wait for new connections; when new connections come in, <code class="language-plaintext highlighter-rouge">accept</code> returns a new file descriptor. In order to handle multiple connections, we create multiple processes or threads. However, for high-load servers such as a web server that needs to handle thousands of requests per minute, the overhead of creating a new process/thread for each client is too much for our server. We will look at some of these alternatives.</p>
+
+<h2 id="server-pools">Server Pools</h2>
+
+<p>Instead of creating new process/thread for each client. We can create a fixed number of threads before any requests are received. Each child in the server pool handle a client at a time, but instead of terminating the child process after each request, the child can fetch next requests to handle, this loop will continue to the end of time.</p>
+
+<p>There are some considerations with these models. The thread pool must be large enough. The main thread can monitor the number of unoccupied child in the server pools. At peak load, we can increase the size of the pool. When the load decreases, the size of our server pool can be reduced.</p>
+
+<p>Our server flow will look like this:</p>
+
+<ol>
+  <li>The main thread will call <code class="language-plaintext highlighter-rouge">accept</code> to receive a new connection</li>
+  <li>The main thread will pass the file descriptors containing the new connection to one of the free processes in the pool</li>
+  <li>Our thread pool can be implemented as a <a href="https://en.wikipedia.org/wiki/Producer%E2%80%93consumer_problem" target="_blank">producer/consumer pattern</a>.</li>
+  <li>A child in the worker pool will wait for new requests in the pool to handle</li>
+</ol>
+
+<p>You can find the full code <a href="https://github.com/bannnn511/code/blob/main/C/unix/webserver/src/wserver.c" target="_blank">here</a>.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// create thread pool</span>
+<span class="n">thread_pool</span> <span class="o">*</span><span class="n">pool</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">thread_pool</span><span class="p">));</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">thread_pool_init</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">threads</span><span class="p">,</span> <span class="n">buffersize</span><span class="p">,</span> <span class="n">policy</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">"thread_pool_init failed</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="k">const</span> <span class="kt">int</span> <span class="n">listen_fd</span> <span class="o">=</span> <span class="n">open_listen_fd_or_die</span><span class="p">(</span><span class="n">port</span><span class="p">);</span>
+<span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+ <span class="k">struct</span> <span class="n">sockaddr_in</span> <span class="n">client_addr</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">client_len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">client_addr</span><span class="p">);</span>
+
+ <span class="c1">// accept new client connection</span>
+    <span class="kt">long</span> <span class="n">conn_fd</span> <span class="o">=</span> <span class="n">accept</span><span class="p">(</span><span class="n">listen_fd</span><span class="p">,</span> <span class="p">(</span><span class="n">sockaddr_t</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">client_addr</span><span class="p">,</span> <span class="p">(</span><span class="n">socklen_t</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">client_len</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">conn_fd</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"accept"</span><span class="p">);</span>
+        <span class="k">continue</span><span class="p">;</span>
+    <span class="p">}</span>
+
+ <span class="c1">// notify thread pool</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">thread_pool_add</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span> <span class="n">connection_handler</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span> <span class="n">conn_fd</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">"fail to add task to worker</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+        <span class="n">close_or_die</span><span class="p">(</span><span class="n">conn_fd</span><span class="p">);</span>
+        <span class="k">break</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="handling-multiple-requests-with-a-single-process">Handling multiple requests with a single process</h2>
+
+<p>For a server with a single process to handle multiple clients, it needs to have a method to simultaneously monitor multiple file descriptors. This type of concurrent programming style is widely known as <strong>event-based concurrency</strong>. With this type of programming, we must make all our blocking I/O as <strong>non-blocking I/O</strong> so that it does not block a single process. When a file is ready to be I/O, it can be seen as an event that has occurred, and we as users will need to listen to these events so that we can handle the data from I/O. Luckily, the OS gives us 3 I/O models for monitoring multiple file descriptors (I/O multiplexing, signal-driven driven and epoll).</p>
+
+<p>Event-based concurrency can be seen in applications such as Nginx and Node.js. The main idea is to use a single process to handle multiple clients by using non-blocking I/O and event-driven programming.</p>
+
+<h3 id="io-readiness">I/O readiness</h3>
+
+<p>In order to choose which technique should choose, let’s look at two models of notification to check for file descriptor readiness.</p>
+
+<p><strong>Level-triggered I/O</strong>: The kernel notifies the process as long as the file descriptor remains ready (e.g., socket has data). If the process doesn’t act, it keeps getting notified.</p>
+
+<p><strong>Edge-triggered I/O</strong>: The kernel notifies the process only once when the state changes (e.g., data arrives). If the process misses it, no further notifications will occur.</p>
+
+<p>Level-triggered is simpler but can waste CPU cycles. Edge-triggered needs careful non-blocking reads and draining loops, but is more efficient under high load.</p>
+
+<h3 id="io-multiplexing-level-triggered">I/O multiplexing (Level-triggered)</h3>
+
+<p>I/O multiplexing is a technique that use <code class="language-plaintext highlighter-rouge">select</code> or <code class="language-plaintext highlighter-rouge">poll</code> to monitor multiple file descriptors to find out if I/O is possible.
+Let’s look at how <code class="language-plaintext highlighter-rouge">select</code> works.</p>
+
+<ol>
+  <li>
+<code class="language-plaintext highlighter-rouge">select</code> copies our file descriptors (the one that we want to monitor) into the kernel.</li>
+  <li>Kernel will check every file descriptors one by one (O(n)).</li>
+  <li>Kernel tells us which file descriptors are ready</li>
+  <li>We have to setup the fds again every time we call <code class="language-plaintext highlighter-rouge">select</code> (the internal data struct has been modified by <code class="language-plaintext highlighter-rouge">select</code>)</li>
+</ol>
+
+<p>You can file full code <a href="https://github.com/bannnn511/code/blob/main/C/unix/socket/2.select_server_client/server.c" target="_blank">here</a>.
+Let’s examine our server code using <code class="language-plaintext highlighter-rouge">select</code>:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//.. setup server</span>
+<span class="k">while</span> <span class="p">(</span><span class="n">keep_running</span><span class="p">)</span> <span class="p">{</span>
+ <span class="c1">// read_fds are socket fds that we need to monitor</span>
+    <span class="n">fd_set</span> <span class="n">read_fds</span><span class="p">;</span>
+    <span class="n">FD_ZERO</span><span class="p">(</span><span class="o">&amp;</span><span class="n">read_fds</span><span class="p">);</span>
+    <span class="n">FD_SET</span><span class="p">(</span><span class="n">socket_fd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">read_fds</span><span class="p">);</span> <span class="c1">// monitoring listening socket</span>
+
+    <span class="c1">// Add all connected client sockets</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">connected_sockets</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">FD_SET</span><span class="p">(</span><span class="n">connected_sockets</span><span class="o">-&gt;</span><span class="n">sockets</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="o">&amp;</span><span class="n">read_fds</span><span class="p">);</span>
+    <span class="p">}</span>
+
+ <span class="c1">// check new connection from client using FD_ISSET</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">FD_ISSET</span><span class="p">(</span><span class="n">socket_fd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">read_fds</span><span class="p">))</span> <span class="p">{</span>
+     <span class="c1">// add new socket from client to list of our monitoring fds</span>
+        <span class="n">FD_SET</span><span class="p">(</span><span class="n">newfd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">read_fds</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">const</span> <span class="kt">int</span> <span class="n">rc</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">nfds</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">read_fds</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+    <span class="c1">// check which socket from our client has data using FD_ISSET</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">connected_sockets</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">const</span> <span class="kt">int</span> <span class="n">sock</span> <span class="o">=</span> <span class="n">connected_sockets</span><span class="o">-&gt;</span><span class="n">sockets</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">FD_ISSET</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">read_fds</span><span class="p">))</span> <span class="p">{</span>
+             <span class="c1">// process requests from our clients</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="epoll-level-triggered-edge-triggered">epoll (Level-triggered, Edge-triggered)</h3>
+
+<p><code class="language-plaintext highlighter-rouge">epoll</code> is a Linux-specific I/O multiplexing mechanism that is more efficient than <code class="language-plaintext highlighter-rouge">select</code> and <code class="language-plaintext highlighter-rouge">poll</code>. For Windows and MacOS, there are <code class="language-plaintext highlighter-rouge">iocp</code> and <code class="language-plaintext highlighter-rouge">kqueue</code>. <code class="language-plaintext highlighter-rouge">epoll</code> uses a file descriptor to represent the set of monitored file descriptors, allowing for better scalability.</p>
+
+<p>Let’s look at how <code class="language-plaintext highlighter-rouge">epoll</code> is better than I/O multiplexing:</p>
+
+<ol>
+  <li>In each call to <code class="language-plaintext highlighter-rouge">select</code>, the kernel has to copy the file descriptors from user space to kernel space, and on return. This is not needed in <code class="language-plaintext highlighter-rouge">epoll</code> as it uses a file descriptor to represent the set of monitored file descriptors.</li>
+  <li>The kernel must check every file descriptor on each call to <code class="language-plaintext highlighter-rouge">select</code> and <code class="language-plaintext highlighter-rouge">poll</code> even though some of them are not ready. <code class="language-plaintext highlighter-rouge">epoll</code> only checks the file descriptors that are ready, which is more efficient.</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">epoll</code> supports edge-triggered I/O, which helps prevent file descriptor starvation.</li>
+</ol>
+
+<p>The flow of <code class="language-plaintext highlighter-rouge">epoll</code> is similar to <code class="language-plaintext highlighter-rouge">select</code>, but with some differences:</p>
+
+<ol>
+  <li>Create an epoll instance using <code class="language-plaintext highlighter-rouge">epoll_create1()</code>.</li>
+  <li>Add server sockets to the epoll instance using <code class="language-plaintext highlighter-rouge">epoll_ctl()</code>.</li>
+  <li>Wait for events using <code class="language-plaintext highlighter-rouge">epoll_wait()</code>.
+    <ol>
+      <li>If we have a new connection, we need to add it to the epoll instance</li>
+      <li>Set the socket to non-blocking mode so that it does not block</li>
+    </ol>
+  </li>
+  <li>Handle events and process data.</li>
+</ol>
+
+<p>Full code <a href="https://github.com/bannnn511/code/blob/main/C/unix/socket/4.server_client_epoll/server.c" target="_blank">here</a>.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// setup servers</span>
+
+<span class="kt">int</span> <span class="n">epfd</span><span class="p">,</span> <span class="n">nfds</span><span class="p">,</span> <span class="n">conn_soc</span><span class="p">;</span>
+<span class="k">struct</span> <span class="n">epoll_event</span> <span class="n">ev</span><span class="p">;</span>
+<span class="k">struct</span> <span class="n">epoll_event</span> <span class="n">evlist</span><span class="p">[</span><span class="n">MAX_EVENTS</span><span class="p">];</span> <span class="c1">// evlist will contain all fd events that are ready</span>
+
+<span class="c1">// create epoll instance</span>
+<span class="n">epfd</span> <span class="o">=</span> <span class="n">epoll_create1</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+
+<span class="n">ev</span><span class="p">.</span><span class="n">events</span> <span class="o">=</span> <span class="n">EPOLLIN</span><span class="p">;</span>  <span class="c1">// register for read events</span>
+<span class="n">ev</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">fd</span> <span class="o">=</span> <span class="n">socket_fd</span><span class="p">;</span> 
+<span class="n">epoll_ctl</span><span class="p">(</span><span class="n">epfd</span><span class="p">,</span> <span class="n">EPOLL_CTL_ADD</span><span class="p">,</span> <span class="n">socket_fd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ev</span><span class="p">);</span> <span class="c1">// add socket to epoll instance</span>
+
+ <span class="k">while</span> <span class="p">(</span><span class="n">keep_running</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">nfds</span> <span class="o">=</span> <span class="n">epoll_wait</span><span class="p">(</span><span class="n">epfd</span><span class="p">,</span> <span class="n">evlist</span><span class="p">,</span> <span class="n">MAX_EVENTS</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">);</span>  <span class="c1">// wait for events</span>
+
+        <span class="k">struct</span> <span class="n">epoll_event</span> <span class="n">p</span><span class="p">;</span>
+
+        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">nfds</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+            <span class="c1">// if socket_fd is ready, it means we have a new connection</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">evlist</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">data</span><span class="p">.</span><span class="n">fd</span> <span class="o">==</span> <span class="n">socket_fd</span><span class="p">)</span> <span class="p">{</span>
+                <span class="c1">// socket receives a new connection</span>
+                <span class="k">struct</span> <span class="n">sockaddr_storage</span> <span class="n">their_addr</span><span class="p">;</span>
+                <span class="n">socklen_t</span> <span class="n">addr_size</span> <span class="o">=</span> <span class="k">sizeof</span> <span class="n">their_addr</span><span class="p">;</span>
+
+                <span class="c1">// accept new connection</span>
+                <span class="n">conn_soc</span> <span class="o">=</span> <span class="n">accept</span><span class="p">(</span><span class="n">socket_fd</span><span class="p">,</span> <span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">their_addr</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">addr_size</span><span class="p">);</span>
+
+                <span class="c1">// set the socket to non-blocking mode</span>
+                <span class="n">setnonblocking</span><span class="p">(</span><span class="n">conn_soc</span><span class="p">);</span>
+
+                <span class="n">ev</span><span class="p">.</span><span class="n">events</span> <span class="o">=</span> <span class="n">EPOLLIN</span> <span class="o">|</span> <span class="n">EPOLLET</span><span class="p">;</span>
+                <span class="n">ev</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">fd</span> <span class="o">=</span> <span class="n">conn_soc</span><span class="p">;</span>
+                <span class="n">epoll_ctl</span><span class="p">(</span><span class="n">epfd</span><span class="p">,</span> <span class="n">EPOLL_CTL_ADD</span><span class="p">,</span> <span class="n">conn_soc</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ev</span><span class="p">);</span> <span class="c1">// add new socket to epoll instance</span>
+            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+                <span class="c1">// handle request from client</span>
+                <span class="n">handle_request</span><span class="p">(</span><span class="n">evlist</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">data</span><span class="p">.</span><span class="n">fd</span><span class="p">);</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="summary">Summary</h2>
+
+<p>A concurrent server handles multiple clients simultaneously. A traditional concurrent server that uses multiple processes/threads to handle a high-load scenario may not be enough. We have to look at several methods, such as server pools, I/O multiplexing, and epoll.</p>
+</body></html>
+            <!-- <p>This line appears after every note.</p> -->
+        </content>
+
+        <side style="font-size: 0.9em">
+            <h3 style="margin-bottom: 1em">Notes mentioning this note</h3>
+            
+
+            <div style="font-size: 0.9em">
+                <p>There are no notes linking to this note.</p>
+            </div>
+            
+        </side>
+    </div>
+</article>
+
+<hr />
+
+<p>
+    Here are all the notes in this blog, along with their links, visualized as a
+    graph.
+</p>
+
+<style>
+  .links line {
+    stroke: #ccc;
+    opacity: 0.5;
+  }
+
+  .nodes circle {
+    cursor: pointer;
+    fill: #8b88e6;
+    transition: all 0.15s ease-out;
+  }
+
+  .text text {
+    cursor: pointer;
+    fill: #333;
+    text-shadow: -1px -1px 0 #fafafabb, 1px -1px 0 #fafafabb, -1px 1px 0 #fafafabb, 1px 1px 0 #fafafabb;
+  }
+
+  .nodes [active],
+  .text [active] {
+    cursor: pointer;
+    fill: black;
+  }
+
+  .inactive {
+    opacity: 0.1;
+    transition: all 0.15s ease-out;
+  }
+
+  #graph-wrapper {
+    background: #fcfcfc;
+    border-radius: 4px;
+    height: auto;
+  }
+  
+  #graph-wrapper > svg {
+    max-width: 100%;
+    display: block;
+  }
+</style>
+
+<div id="graph-wrapper">
+  <script>
+    window.addEventListener("load", loadGraph);
+
+    function loadGraph() {
+      var oScript = document.createElement("script");
+      oScript.src = "https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js";
+      oScript.crossOrigin = 'anonymous';
+      oScript.integrity =
+        "sha512-FHsFVKQ/T1KWJDGSbrUhTJyS1ph3eRrxI228ND0EGaEp6v4a/vGwPWd3Dtd/+9cI7ccofZvl/wulICEurHN1pg==";
+      document.body.appendChild(oScript);
+      oScript.onload = () => {
+        const MINIMAL_NODE_SIZE = 8;
+        const MAX_NODE_SIZE = 12;
+        const ACTIVE_RADIUS_FACTOR = 1.5;
+        const STROKE = 1;
+        const FONT_SIZE = 16;
+        const TICKS = 200;
+        const FONT_BASELINE = 40;
+        const MAX_LABEL_LENGTH = 50;
+
+        const graphData = {"edges":[{"source":"120118543211599104101100117108101114329711010032991111101161011201163211511910511699104","target":"65100100105110103329732115121115116101109329997108108321161113212011854"},{"source":"83105109112108101328467803283101114118101114456710810510111011632112971141163250443211111610410111432991111109911711411410111011632831011141181011143268101115105103110115","target":"83105109112108101328467803283101114118101114456710810510111011632112971141163249"}],"nodes":[{"id":"6610112111111010032771171081161051121141119910111511510511010346464632771171081161051161041141019710010511010332116104101328311711079833275101114110101108","path":"/sunos-5-0-multithreading","label":"Beyond Multiprocessing... Multithreading the SunOS Kernel"},{"id":"7797112821011001179910158328310510911210810510210510110032689711697328011411199101115115105110103321111103276971141031013267108117115116101114115","path":"/mapreduce","label":"MapReduce: Simplified Data Processing on Large Clusters"},{"id":"65100100105110103329732115121115116101109329997108108321161113212011854","path":"/adding-a-system-call-to-xv6","label":"Adding a system call to xv6"},{"id":"120118543211599104101100117108101114329711010032991111101161011201163211511910511699104","path":"/xv6-scheduler-and-context-switch","label":"xv6 scheduler and context switch"},{"id":"72979910710511010332120118543211297103101321169798108101","path":"/hacking-xv6-page-table","label":"Hacking xv6 page table"},{"id":"7010510810132734779","path":"/1-file-io","label":"File I/O"},{"id":"83105109112108101328467803283101114118101114456710810510111011632112971141163249","path":"/2-simple-tcp-server-client-1","label":"Simple TCP Server-Client part 1"},{"id":"83105109112108101328467803283101114118101114456710810510111011632112971141163250443211111610410111432991111109911711411410111011632831011141181011143268101115105103110115","path":"/3-simple-tcp-server-client-2-other-concurrent-server-designs","label":"Simple TCP Server-Client part 2, other concurrent Server Designs"}]}
+        let nodesData = graphData.nodes;
+        let linksData = graphData.edges;
+
+        const nodeSize = {};
+
+        const updateNodeSize = () => {
+          nodesData.forEach((el) => {
+            let weight =
+              3 *
+              Math.sqrt(
+                linksData.filter((l) => l.source.id === el.id || l.target.id === el.id)
+                  .length + 1
+              );
+            if (weight < MINIMAL_NODE_SIZE) {
+              weight = MINIMAL_NODE_SIZE;
+            } else if (weight > MAX_NODE_SIZE) {
+              weight = MAX_NODE_SIZE;
+            }
+            nodeSize[el.id] = weight;
+          });
+        };
+
+        const onClick = (d) => {
+          window.location = d.path
+        };
+
+        const onMouseover = function (d) {
+          const relatedNodesSet = new Set();
+          linksData
+            .filter((n) => n.target.id == d.id || n.source.id == d.id)
+            .forEach((n) => {
+              relatedNodesSet.add(n.target.id);
+              relatedNodesSet.add(n.source.id);
+            });
+
+          node.attr("class", (node_d) => {
+            if (node_d.id !== d.id && !relatedNodesSet.has(node_d.id)) {
+              return "inactive";
+            }
+            return "";
+          });
+
+          link.attr("class", (link_d) => {
+            if (link_d.source.id !== d.id && link_d.target.id !== d.id) {
+              return "inactive";
+            }
+            return "";
+          });
+
+          link.attr("stroke-width", (link_d) => {
+            if (link_d.source.id === d.id || link_d.target.id === d.id) {
+              return STROKE * 4;
+            }
+            return STROKE;
+          });
+          text.attr("class", (text_d) => {
+            if (text_d.id !== d.id && !relatedNodesSet.has(text_d.id)) {
+              return "inactive";
+            }
+            return "";
+          });
+        };
+
+        const onMouseout = function (d) {
+          node.attr("class", "");
+          link.attr("class", "");
+          text.attr("class", "");
+          link.attr("stroke-width", STROKE);
+        };
+
+        const sameNodes = (previous, next) => {
+          if (next.length !== previous.length) {
+            return false;
+          }
+
+          const map = new Map();
+          for (const node of previous) {
+            map.set(node.id, node.label);
+          }
+
+          for (const node of next) {
+            const found = map.get(node.id);
+            if (!found || found !== node.title) {
+              return false;
+            }
+          }
+
+          return true;
+        };
+
+        const sameEdges = (previous, next) => {
+          if (next.length !== previous.length) {
+            return false;
+          }
+
+          const set = new Set();
+          for (const edge of previous) {
+            set.add(`${edge.source.id}-${edge.target.id}`);
+          }
+
+          for (const edge of next) {
+            if (!set.has(`${edge.source.id}-${edge.target.id}`)) {
+              return false;
+            }
+          }
+
+          return true;
+        };
+
+        const graphWrapper = document.getElementById('graph-wrapper')
+        const element = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        element.setAttribute("width", graphWrapper.getBoundingClientRect().width);
+        element.setAttribute("height", window.innerHeight * 0.8);
+        graphWrapper.appendChild(element);
+
+        const reportWindowSize = () => {
+          element.setAttribute("width", window.innerWidth);
+          element.setAttribute("height", window.innerHeight);
+        };
+
+        window.onresize = reportWindowSize;
+
+        const svg = d3.select("svg");
+        const width = Number(svg.attr("width"));
+        const height = Number(svg.attr("height"));
+        let zoomLevel = 1;
+
+        const simulation = d3
+          .forceSimulation(nodesData)
+          .force("forceX", d3.forceX().x(width / 2))
+          .force("forceY", d3.forceY().y(height / 2))
+          .force("charge", d3.forceManyBody())
+          .force(
+            "link",
+            d3
+              .forceLink(linksData)
+              .id((d) => d.id)
+              .distance(70)
+          )
+          .force("center", d3.forceCenter(width / 2, height / 2))
+          .force("collision", d3.forceCollide().radius(80))
+          .stop();
+
+        const g = svg.append("g");
+        let link = g.append("g").attr("class", "links").selectAll(".link");
+        let node = g.append("g").attr("class", "nodes").selectAll(".node");
+        let text = g.append("g").attr("class", "text").selectAll(".text");
+
+        const resize = () => {
+          if (d3.event) {
+            const scale = d3.event.transform;
+            zoomLevel = scale.k;
+            g.attr("transform", scale);
+          }
+
+          const zoomOrKeep = (value) => (zoomLevel >= 1 ? value / zoomLevel : value);
+
+          const font = Math.max(Math.round(zoomOrKeep(FONT_SIZE)), 1);
+
+          text.attr("font-size", (d) => font);
+          text.attr("y", (d) => d.y - zoomOrKeep(FONT_BASELINE) + 8);
+          link.attr("stroke-width", zoomOrKeep(STROKE));
+          node.attr("r", (d) => {
+            return zoomOrKeep(nodeSize[d.id]);
+          });
+          svg
+            .selectAll("circle")
+            .filter((_d, i, nodes) => d3.select(nodes[i]).attr("active"))
+            .attr("r", (d) => zoomOrKeep(ACTIVE_RADIUS_FACTOR * nodeSize[d.id]));
+        };
+
+        const ticked = () => {
+          node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+          text
+            .attr("x", (d) => d.x)
+            .attr("y", (d) => d.y - (FONT_BASELINE - nodeSize[d.id]) / zoomLevel);
+          link
+            .attr("x1", (d) => d.source.x)
+            .attr("y1", (d) => d.source.y)
+            .attr("x2", (d) => d.target.x)
+            .attr("y2", (d) => d.target.y);
+        };
+
+        const restart = () => {
+          updateNodeSize();
+          node = node.data(nodesData, (d) => d.id);
+          node.exit().remove();
+          node = node
+            .enter()
+            .append("circle")
+            .attr("r", (d) => {
+              return nodeSize[d.id];
+            })
+            .on("click", onClick)
+            .on("mouseover", onMouseover)
+            .on("mouseout", onMouseout)
+            .merge(node);
+
+          link = link.data(linksData, (d) => `${d.source.id}-${d.target.id}`);
+          link.exit().remove();
+          link = link.enter().append("line").attr("stroke-width", STROKE).merge(link);
+
+          text = text.data(nodesData, (d) => d.label);
+          text.exit().remove();
+          text = text
+            .enter()
+            .append("text")
+            .text((d) => shorten(d.label.replace(/_*/g, ""), MAX_LABEL_LENGTH))
+            .attr("font-size", `${FONT_SIZE}px`)
+            .attr("text-anchor", "middle")
+            .attr("alignment-baseline", "central")
+            .on("click", onClick)
+            .on("mouseover", onMouseover)
+            .on("mouseout", onMouseout)
+            .merge(text);
+
+          node.attr("active", (d) => isCurrentPath(d.path) ? true : null);
+          text.attr("active", (d) => isCurrentPath(d.path) ? true : null);
+
+          simulation.nodes(nodesData);
+          simulation.force("link").links(linksData);
+          simulation.alpha(1).restart();
+          simulation.stop();
+
+          for (let i = 0; i < TICKS; i++) {
+            simulation.tick();
+          }
+
+          ticked();
+        };
+
+        const zoomHandler = d3.zoom().scaleExtent([0.2, 3]).on("zoom", resize);
+
+        zoomHandler(svg);
+        restart();
+
+        function isCurrentPath(notePath) {
+          return window.location.pathname.includes(notePath)
+        }
+
+        function shorten(str, maxLen, separator = ' ') {
+          if (str.length <= maxLen) return str;
+          return str.substr(0, str.lastIndexOf(separator, maxLen)) + '...';
+        }
+      }
+    }
+  </script>
+</div>
+
+</main>
+      <footer><a class="internal-link" href="/about">An Ha is me</a>
+</footer>
+    </div>
+
+    <!-- That file is not particularly elegant. This will need a refactor at some point. -->
+<style>
+  content a.internal-link {
+    border-color: #8b88e6;
+    background-color: #efefff;
+  }
+
+  #tooltip-wrapper {
+    background: white;
+    padding: 1em;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    position: absolute;
+    width: 400px;
+    height: 250px;
+    font-size: 0.8em;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+    opacity: 0;
+    transition: opacity 100ms;
+  }
+
+  #tooltip-wrapper:after {
+		content: "";
+		position: absolute;
+		z-index: 1;
+		bottom: 0;
+		left: 0;
+		pointer-events: none;
+		background-image: linear-gradient(to bottom, rgba(255,255,255, 0), rgba(255,255,255, 1) 90%);
+		width: 100%;
+		height: 75px;
+  }
+</style>
+
+<div style="opacity: 0; display: none;" id='tooltip-wrapper'>
+  <div id='tooltip-content'>
+  </div>
+</div>
+
+<iframe style="display: none; height: 0; width: 0;" id='link-preview-iframe' src="">
+</iframe>
+
+<script>
+  var opacityTimeout;
+  var contentTimeout;
+  var transitionDurationMs = 100;
+
+  var iframe = document.getElementById('link-preview-iframe')
+  var tooltipWrapper = document.getElementById('tooltip-wrapper')
+  var tooltipContent = document.getElementById('tooltip-content')
+
+  var linkHistories = {};
+
+  function hideTooltip() {
+    opacityTimeout = setTimeout(function() {
+      tooltipWrapper.style.opacity = 0;
+      contentTimeout = setTimeout(function() {
+        tooltipContent.innerHTML = '';
+        tooltipWrapper.style.display = 'none';
+      }, transitionDurationMs + 1);
+    }, transitionDurationMs)
+  }
+
+  function showTooltip(event) {
+    var elem = event.target;
+    var elem_props = elem.getClientRects()[elem.getClientRects().length - 1];
+    var top = window.pageYOffset || document.documentElement.scrollTop
+
+    if (event.target.host === window.location.host) {
+      if (!linkHistories[event.target.href]) {
+        iframe.src = event.target.href
+        iframe.onload = function() {
+          tooltipContentHtml = ''
+          tooltipContentHtml += '<div style="font-weight: bold;">' + iframe.contentWindow.document.querySelector('h1').innerHTML + '</div>'
+          tooltipContentHtml += iframe.contentWindow.document.querySelector('content').innerHTML
+
+          tooltipContent.innerHTML = tooltipContentHtml
+          linkHistories[event.target.href] = tooltipContentHtml
+
+          tooltipWrapper.style.display = 'block';
+          setTimeout(function() {
+            tooltipWrapper.style.opacity = 1;
+          }, 1)
+        } 
+      } else {
+        tooltipContent.innerHTML = linkHistories[event.target.href]
+        tooltipWrapper.style.display = 'block';
+        setTimeout(function() {
+          tooltipWrapper.style.opacity = 1;
+        }, 1)
+      }
+
+
+      tooltipWrapper.style.left = elem_props.left - (tooltipWrapper.offsetWidth / 2) + (elem_props.width / 2) + "px";
+      if ((window.innerHeight - elem_props.top) < (tooltipWrapper.offsetHeight)) {
+          tooltipWrapper.style.top = elem_props.top + top - tooltipWrapper.offsetHeight - 10 + "px";
+      } else if ((window.innerHeight - elem_props.top) > (tooltipWrapper.offsetHeight)) {
+          tooltipWrapper.style.top = elem_props.top + top + 35 + "px";
+      }
+
+      if ((elem_props.left + (elem_props.width / 2)) < (tooltipWrapper.offsetWidth / 2)) {
+          tooltipWrapper.style.left = "10px";
+      } else if ((document.body.clientWidth - elem_props.left - (elem_props.width / 2)) < (tooltipWrapper.offsetWidth / 2)) {
+          tooltipWrapper.style.left = document.body.clientWidth - tooltipWrapper.offsetWidth - 20 + "px";
+      }
+    }
+  }
+
+  function setupListeners(linkElement) {
+    linkElement.addEventListener('mouseleave', function(_event) {
+      hideTooltip();
+    });
+
+    tooltipWrapper.addEventListener('mouseleave', function(_event) {
+      hideTooltip();
+    });
+
+    linkElement.addEventListener('touchend', function(_event) {
+      hideTooltip();
+    });
+
+    tooltipWrapper.addEventListener('touchend', function(_event) {
+      hideTooltip();
+    });
+
+    linkElement.addEventListener('mouseenter', function(event) {
+      clearTimeout(opacityTimeout);
+      clearTimeout(contentTimeout);
+      showTooltip(event);
+    });
+
+    tooltipWrapper.addEventListener('mouseenter', function(event) {
+      clearTimeout(opacityTimeout);
+      clearTimeout(contentTimeout);
+    });
+  }
+
+  document.querySelectorAll('content a').forEach(setupListeners);
+</script>
+
+  </body>
+</html>
