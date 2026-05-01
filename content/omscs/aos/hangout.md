@@ -1,11 +1,29 @@
 # 30/4
 
 ## Security
-- 
+
+- symmetric of private key encryption, same key for encryption/decryption or different but related to encryption/decryption? -> same
+- asymmetric of public key encryption, same key for encryption/decryption or different but related to encryption/decryption? -> different
+- Andrew FS
+  - secure link : users in campus
+  - insecure link: 
+  - username/password: exposes to frequently -> MIM attack
+  - why use symmetric private key encryption (extent login, performance,...)?
+    - for performance, because symmetric is faster then asymmetric
+  - core principle: authenticate user, prevent replay attack,...
+  - in order to establish rpc session, the bind call in cleartext have to send client id, and encrypt a random number with a key and send to server, ... server increment x+1, and send y random number back to client, what does the client know?
+    - client knows the server is genuine + server knows the client is genuine
+    - client's key might be compromised
+  - why use session key?
+    - to not overexposed hsk key
+  - Why AFS use symmetric private key?
+    - if use public key encryption -> N^2 key-pairs for each user and distribute to all workstations on campus
+  - If use public key encryption, do need to send user id on clear text? -> no because public key can be used to identify user
+  - 
 
 ## Quicksilver
 
-- develped by IBM - 1985
+- developed by IBM - 1985
 - recovery should be backed into design
 - distributed {client, server}
 - QS bundles IPC with recovery management using lightweight txn
@@ -13,15 +31,15 @@
   - transaction tree root = owner + participants
   - Does transaction build-up cause overhead in communication?
     - client-server can choose to use the recovery management
-  - Computational overhead and not communication overhead because comunication is piggybacked going from one node to another (gonna happen anyway)
-    - txn managers on different nodes commnunicate with no extra overhas as communication is piggybacked on IPC
+  - Computational overhead and not communication overhead because communication is piggybacked going from one node to another (gonna happen anyway)
+    - txn managers on different nodes communicate with no extra overhead as communication is piggybacked on IPC
   - Purpose of transaction? (db, recovery?) -> recovery management
-  - One for entire DS or one for each sequence of server-client communication? -> for each server-client commnunication
+  - One for entire DS or one for each sequence of server-client communication? -> for each server-client communication
   - transaction manager on behalf of clients do log for each client -> forcing to disk (recovery)
     - manager for all server-client interactions on its node
     - open file, talking to window manger for display ... (manger have to log )
   - Log management is common or distinct for each application? -> all applications
-    - recovery managment is builit into OS, common for all applications
+    - recovery management is built into OS, common for all applications
       -> careful forcing log onto disk, if fsync on a node -> all logs in memory will be pushed to disk -> can hurt performance
   - Compare QS recovery (all applications) vs LRVM recovery (all applications)
     - both are truth, if applications desire then they can have it
@@ -31,12 +49,12 @@
     - any use system resource -> QS will do everything
       - malloc
       - open window manager
-        ==> all have breadcumbs (buggy sofware, system crashes, resource leak), QS try to recover everything? -> HOW?
+        ==> all have breadcrumbs (buggy software, system crashes, resource leak), QS try to recover everything? -> HOW?
     - LRVM only for memory
   - QS vs LRVM, which has more implementation overhead? -> depends
     - LRVM need set-range -> but might have no changes
     - LRVM use redo log might be created even if no changes are made
-    - QS with help of devs, logging only log in memory, QS can do less work while LRVM have to log everythign within set-range
+    - QS with help of devs, logging only log in memory, QS can do less work while LRVM have to log everything within set-range
     - QS might have to log everything from network, resource -> depends on volume
   - When is txn abort in QS?
     - not aborted at the first indication of failure# 22/4
