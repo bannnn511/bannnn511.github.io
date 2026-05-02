@@ -131,6 +131,75 @@
 - memory pressure? conviction policy?
   - only a portion of memory is battery-backed
 
+# 17/4
+
+- latency: timer (hardware), preempt, scheudling
+- periodic timer: 
+  - not real-time
+  - latency of timer-event (need to be time-aware)
+  - periodically sample
+- oneshot timer:
+  - pros: exact time
+  - cons: os will be interrupted -> overhead
+- soft timer:-
+  - pros: reduce overhead, no additional interrupt to processor, OS will look for events to react to, polling
+  - cons: latency + not timely, polling overhead
+- firm timer: timely + reduce overhead
+ - APIC timer (advance programmable interrupt control)
+ - oneshot: timer goes off when the value reach 0
+ - overhead of oneshot timer?
+  - CPU get interrupted -> hurts performance of real-time sensitive applications
+  -> avoid by scheduling the oneshot timer preceding the periodic timer -> avoid overhead of extra interrupt by the oneshot timer
+  - timer expired -> check to see if there is any timer will go off in the near future using OVERSHOOT DISTANCE
+  - can piggybacked on system call to go into the kernel to query if the one shot timer will go off
+  - exploit soft-timer + periodic timer => reduce overhead of oneshot timer + getting precise timing
+- preempt latency
+  - lock breaking kernel: explicit preemption point + when kernel not wokring on shared data structure
+  - hierachial lock cannot be break into parts
+- scheduling latency
+  - proportion queue: every periodic T, program need a guarantee to get 1/3 of the period
+  - priority inversion: make the lower priorty server same priority as the high level caller
+- large scale situation awareness
+  - sending data overhead, false positive,...
+  - MapReduce: simplicity, scaling is automatic
+  - simpicity -> ease of use 
+  - PTS:
+    - propagate events
+    - dealing with live + historical data uniformly with simple interface
+    - PTS programming model: channel = commincation among entities
+    - output + timestamp -> into channel
+    - channel organized by timestamp
+    - another computation want to get item from channel n ... n+1
+      - can retrieve all items from lower bound and upper bound
+      - process items then put into another channel with the same timestamp -> chain into a pipeline
+    - Similarity between PTS channel vs Unix Socket? (unix abstraction, many to many, timestamp)
+      - Unix abstraction: channel name unique same as socket name
+    - Difference between PTS channel vs Unix Socket?
+      - PTS has timestamp metadata within message, socket does not
+      - Socket abstraction is 1-1 server-client
+      - PTS channel (M-M) multiple threads -> one channel, 1 channel -> multiple threads
+    - causuality is maintained using timestamp
+    - when multiple threads output to same channel, does developers need to worry about mutual exclusion? -> NO, PTS abstraction all the synchronization,
+      - item has timestamp -> cannot mutate
+      - all items are stored in sequence because of timestamp
+      -> no problem with mutual exclusion
+    - relate time Lamport?
+      - Lamport: logical + physical time
+      - PTS only uses physical time, cameras have different timestamp, is there a global synchronization of clock?
+        - ETP: encrypt time protocol -> roughly in-sync
+      - PTS: the granuality of correctes of ETP is enough, dont need to be globally synchronization
+    - simplicty with put/get
+    - time variables (new, old, latest,...)
+    - two important concept
+      - partial synchroniztion casuality: no inconsistency on shared data structure
+        - getting mutual exclusion lock on shared data structure -> one thread will get the lock and can modif
+        - time does not come into picture
+        - correctness cannot come from partial order of which the data structure is modified
+        - order of threads getting the lock that will be handle cannot be the property that application demands
+      - temporal causality?
+    - delivery system does the heavy lifting for streaming, storage,...    
+    - garbage collector or store ?
+
 # 08/04
 
 ## DQ
