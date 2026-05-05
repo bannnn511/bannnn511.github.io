@@ -130,3 +130,36 @@
     - any change is persistent because of battery-backed
 - memory pressure? conviction policy?
   - only a portion of memory is battery-backed
+
+# 08/04
+
+## DQ
+
+- given a capacity, DQ is constant, can increae Q and decrease D
+- as a system admin, if can increase capacity -> can increase Q or D
+- replication vs partitioning
+  - replication
+    - all servers have copies of all dataset
+    - harvest can remain unchange -> yield will decrease > Q will go down
+  - parition
+    - failure -> full data not avialable -> harvest will surfer, yield remains unchanged
+    - give parallelism but also want replication for full harvest (gmail,...)
+    - some applications can deal with partial result (search,...)
+- GMAIL: SAAS, implementation may change, API remains the same -> interact the same way
+- Do Google Search, what happens? -> Computation running parallel on large data center
+
+## MapReduce
+
+- need coordination between the parallelism happens
+- resources available on the cloud -> help with developers -> painless for domain experts
+- Why map-reduce?
+  - steps in processing can be implementing using map-reduce
+  - most usecase need a map function and a reduce function
+  - heavely lifting, number of mappers + reducers + coordination done by map-reduce framework
+  - page rank: map will transform url, reduce: aggregate the occurence
+- In case of failure, the number of maps? -> numbers of shard, 10 shards -> 10 mappers
+- In case of failure, the number of reducers? -> numbers of distinct output
+- How many intermediate files that will be passed from mappers to reducers? -> M immediate files, R reducers -> M * R
+- When does the reducers start reading the file? -> when the mappers is done
+- reducer finishes and produces an output file (temp file as first), making the file visible to user is job of master -> use rename to make visible to user
+  -> the stragger will be ignored
