@@ -201,7 +201,6 @@
       - temporal causality?
     - delivery system does the heavy lifting for streaming, storage,...    
     - garbage collector or store ?
-<<<<<<< HEAD
 
 # 08/04
 
@@ -268,3 +267,68 @@
 		- each hop checks whether the node is full or loaded for that key
 		- if node is full, the system assumes tree saturation meaning nodes closer to that node also likely full
 		- the algorithm stop processing toward the destination and instead store the key at earlier node
+        - 
+# 01/04
+
+- NFS remains centralized in its management of files -> unbalanced server loads
+- XFS decouple metadata management from data storage
+- both aim to mitigate disk latency
+	- LFS: treating the entire file system as continuous log
+	- JFS: uses temporary logs to update data files
+- Cooperate caching
+	- XFS: peer-to-peer caching model where clients server as both consumer + providers of data
+		- aggregate memory of local network -> minimize disk access
+		- static assignment at file creation to maintain scalability through global replication
+- NFS
+	- centralized management: each file partition is managed by a dedicated server
+	- lopsided loading: a hot file can overwhelm a single server while other servers remain idle
+	- static association: no mechanism to move metadata management to an idle server to balance load
+- Journaling file system (JFS)
+	- log files + data files
+	- read: standard file access
+	- logs are temporary, applied to data files, discard log files
+	- reduces disk by batching changes
+- Log-structured file system (LFS)
+	- only log files
+	- logs are persistent and represent the current state
+	- read: data must be reconstructed from various log segments
+	- amortizes disk by writing large, contiguous log segments
+- XFS: files do not exist on disk, system uses Logs Segments
+	- m map: maps an index number -> specific metadata manager node
+		- globally replicated
+		- statically assigned at creation
+	- file dir: maps human-readable file to index number
+		- on the client node, where the file was created
+	- imap: maps i-number to inode
+		- partitioned among metadata managers
+	- inode: pointers -> disk address of the log segments
+		- one per file
+	- stripe group map: map log segments IDs -> set of storage server
+		- fault tolerance
+		- bandwidth
+		- globally replicated
+	- data aggregation
+		- changes to multiple files are recorded contiguously in a log segment
+			- flush when full in memory
+	- network stripping: similar to RAID but for network
+	- periodically clean the log + coalesces active data into new segments to reclaim space
+	- fastest path - local cache: accesses a file it recently created or read directly from local memory
+	- 2nd best: peer/cooperative cache
+		- if data is not local -> metadata manager identifies peer that has the file in its memory
+		- data is served over network -> reduce disk io
+	- longest path:
+		- query M map to find manager
+		- manager consults the IMAP to find the I-node location
+		- I-node identifies the necessary Log Segment IDs
+		- the stripe group map identifies which storage servers hold the stripes of the segments
+		- the system retrieves the stripes -> reconstruct the log segments -> extracts the requested data blocks
+	- Trade-offs
+		- granularity: choose block sizes and log segments size carefully
+			- large blocks cause internal fragmentation
+			- small blocks increase the complexity of the metadata
+		- fault tolerance
+			- striping log segment across network -> window of vulnerability
+			- node crashes before flush -> data is lost
+		- static vs dynamic management
+			- DN is ideal for load balancing
+			- simplifies by assigning managers statically at the creation time
