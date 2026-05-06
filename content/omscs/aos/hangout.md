@@ -60,6 +60,8 @@
     - not aborted at the first indication of failure# 22/4
     - allowing error reporting to continue and partial failures to be cleaned up when the coordinator initiates termination
 
+# 22/4
+
 ## LRVM
 
 - LRVM reading
@@ -187,11 +189,11 @@
       - Lamport: logical + physical time
       - PTS only uses physical time, cameras have different timestamp, is there a global synchronization of clock?
         - ETP: encrypt time protocol -> roughly in-sync
-      - PTS: the granuality of correctes of ETP is enough, dont need to be globally synchronization
-    - simplicty with put/get
+      - PTS: the granularity of correctnes of ETP is enough, dont need to be globally synchronization
+    - simplicity with put/get
     - time variables (new, old, latest,...)
     - two important concept
-      - partial synchroniztion casuality: no inconsistency on shared data structure
+      - partial synchronisation causality: no inconsistency on shared data structure
         - getting mutual exclusion lock on shared data structure -> one thread will get the lock and can modif
         - time does not come into picture
         - correctness cannot come from partial order of which the data structure is modified
@@ -199,6 +201,7 @@
       - temporal causality?
     - delivery system does the heavy lifting for streaming, storage,...    
     - garbage collector or store ?
+<<<<<<< HEAD
 
 # 08/04
 
@@ -232,3 +235,36 @@
 - When does the reducers start reading the file? -> when the mappers is done
 - reducer finishes and produces an output file (temp file as first), making the file visible to user is job of master -> use rename to make visible to user
   -> the stragger will be ignored
+
+## CDN
+
+- DHT
+	- implementation for CDNs to populate the routing table at the user level
+	- PUT <key,value>, GET KEY -> value 
+	- Traditional greedy approach
+		- key value is placed in a node that is close to the key
+		- get to destination with minimum hops
+		- if go directly -> overload at the destination, tree saturation where nodes in proximity to the congested node also become congested
+	- server overload -> mirror content at geo-locals sites => expensive
+- CORAL	
+	- sloppy DHT spreads metadata 
+	- distance is computed by using XOR the bit patterns of the node IDs for the source and destination
+	- go to half the distance at every hop in the node ID namespace
+		- if the node does not have a direct way to reach the desired node, a nearby node is contracted to obtain information on nodes that are close enough to the destination 
+		- reduces the distance by half to find the appropriate node to place the key
+		- asked each node along the way if it is loaded or full
+		- if full, retracted to choose an appropriate node
+	- reduce congestion in the network
+	- dealing at application level where content is distributed
+	- Operation 
+		- PUT: <key, value>
+			- key: is the content hash, value is node id of the proxy with the content
+			- place the key in an appropriate node based on space and time metrics
+			- FULL: already storing value for a particular key
+			- LOADED: how many requests per unit time a node is willing to store a particular key
+		- GET
+	- what happens if the node is "full" for a specify key?
+		- during the forward phase of the put operation
+		- each hop checks whether the node is full or loaded for that key
+		- if node is full, the system assumes tree saturation meaning nodes closer to that node also likely full
+		- the algorithm stop processing toward the destination and instead store the key at earlier node
