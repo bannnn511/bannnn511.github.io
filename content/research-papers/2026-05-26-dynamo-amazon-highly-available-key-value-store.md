@@ -20,24 +20,37 @@
 - What is the **people problem** and the **technical problem**?
 	- people problem 
 		- users can access services, can perform read and write operations in case of small or large scale components failure
+		- shopping cart service must allow customers to add and remove items even am
 	- technical problem
 		- reliability at massive scale is one of the biggest challenge at Amazon.com
 		- need for storage technologies that are always available
+		- synchronous replication forces tradeoff the availability of data under certain failure scenarios
+		- strong consistency and high availability cannot be achieved simultaneously
 
 - How is it distilled into a **research question**?
 	- How can a system designed to be highly available across datacenters and failures even at the cost of consistency?
 
 - Why doesn’t the people problem have a **trivial solution**?
 	- because in CAP theorem, system design must chose CP or AP which means that there is a tradeoff of consistency and availability
-	- 
+	- availability can be increased by using optimistic replication but leads to conflict resolution
+		- when to resolve: at write or read?
+		- who to resolve: data store or application?
 
 - What are the **previous solutions**, and why are they **inadequate**?
+	- differs in term of Dynamo's target requirements
+		- always writeable
+		- all nodes can be trusted
+		- dont need complex relational schema
+		- latency sensitive read and write operations
+	- avoid routing requests through multiple nodes
+		- routing increases variability in response times
 
 ---
 
 ### 3. What is the proposed solution (hypothesis, idea, design)?
 
 - Why is it believed this solution will work?
+	- Dynamo uses eventual consistency for data replication to achieves high availability
 
 - How does it represent an **improvement**?
 
@@ -220,3 +233,55 @@
 > > o address this issue, at Amazon, SLAs are expressed and measured at the 99.9 th percentile of the distribution. The choice for 99.9% over an even higher percentile has been made based on a cost-benefit analysis which demonstrated a significant increase in cost to improve performance
 > 
 > industry metrics are not good enough, Amazon aims for 99.9th percentile
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=3&selection=262,50,265,47&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.3]]
+> > availability can be increased by using optimistic replication techniques, where changes are allowed to propagate to replicas in the background, and concurrent, disconnected work is tolerated.
+> 
+> hypothesis of using optimistic replication
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=3&selection=269,6,270,57&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.3]]
+> > Dynamo is designed to be an eventually consistent data store; that is all updates reach all replicas eventually.
+> 
+> important solution of how Dynamo can achieve availability
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=3&selection=277,44,281,10&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.3]]
+> > any traditional data stores execute conflict resolution during writes and keep the read complexity simple [7]. In such systems, writes may be rejected if the data store cannot reach all (or a majority of) the replicas at a given time
+> 
+> traditional data store solution for conflicts
+
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=3&selection=283,23,292,1&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.3]]
+> > For a number of Amazon services, rejecting customer updates could result in a poor customer experience. For instance, the shopping cart service must allow customers to add and remove items from their shopping cart even amidst network and server failures.
+> 
+> example of why Dynamo uses read for conflict resolution
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=3&selection=205,0,236,1&color=yellow|p.3]]
+> > Data replication algorithms used in commercial systems traditionally perform synchronous replica coordination in order to provide a strongly consistent data access interface. To achieve this level of consistency, these algorithms are forced to tradeoff the availability of the data under certain failure scenarios.
+> 
+> technical problem of traditional db system
+
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=3&selection=271,0,276,42&color=red|p.3]]
+> > An important design consideration is to decide when to perform the process of resolving update conflicts,
+> 
+> important design consideration of WHEN to resolve conflicts
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=4&selection=0,0,5,66&color=red|p.4]]
+> > The next design choice is who performs the process of conflict resolution. This can be done by the data store or the application.
+> 
+> WHO to resolve conflicts
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=4&selection=160,37,176,2&color=red|p.4]]
+> > Systems like Pastry [16] and Chord [20] use routing mechanisms to ensure that queries can be answered within a bounded number of hops. 
+> 
+> P2P mechanism for query
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=4&selection=237,34,239,47&color=red|p.4]]
+> > Oceanstore resolves conflicts by processing a series of updates, choosing a total order among them, and then applying them atomically in that order
+> 
+> how Oceanstore resolves conflicts
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=5&selection=62,22,88,19&color=yellow|p.5]]
+> > avoid routing requests through multiple nodes (which is the typical design adopted by several distributed hash table systems such as Chord and Pastry). This is because multihop routing increases variability in response times, thereby increasing the latency at higher percentiles.
+> 
+> Dynamo motivation for avoiding P2P approach
