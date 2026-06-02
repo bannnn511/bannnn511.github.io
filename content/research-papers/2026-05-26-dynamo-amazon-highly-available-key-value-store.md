@@ -44,6 +44,11 @@
 		- latency sensitive read and write operations
 	- avoid routing requests through multiple nodes
 		- routing increases variability in response times
+	- examples
+		- P2P system (Freenet, Gnutella, Oceanstore, PAST): queries need multiple hop
+		- Distributed FS + DB
+			- Dynamo does not focus on data integrity and already built for trusted environment
+			- Ficus + Coda: allow disconnected operations
 
 ---
 
@@ -55,6 +60,17 @@
 - How does it represent an **improvement**?
 
 - How is the solution **achieved**?
+	- **partitioning**: consistent hashing -> incremental scalability
+		- variant of consistent hashing by using virtual nodes
+		- one physical server is represented as multiple positions on the ring
+		- number of virtual nodes of a machine is decided based on capacity
+		- because ranges are scattered, **loads get spread across many different machines** and not dump into the next neighbor in case of failure
+		- one new node joins, accepts equivalent amount of load from other nodes
+	- **replication**: 
+	- **high availability**: vector clocks + reconciliation during reads -> version size is decoupled from update rates
+	- **temporary failures**: sloppy quorum and hinted handoff -> high availability + durability guarantee when some replicas not available
+	- **recovering from permanent failure**: anti-entropy using Merkle trees -> synchronizes divergent replicas in the background
+	- **membership + failure detection**: gossip protocol + failure detection -> preserve symmetry + avoid having centralized registry for storing membership + node liveness information
 
 ---
 
@@ -285,3 +301,92 @@
 > > avoid routing requests through multiple nodes (which is the typical design adopted by several distributed hash table systems such as Chord and Pastry). This is because multihop routing increases variability in response times, thereby increasing the latency at higher percentiles.
 > 
 > Dynamo motivation for avoiding P2P approach
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=4&selection=294,24,295,67&color=yellow|p.4]]
+> >  Systems like Ficus [15] and Coda [19] replicate files for high availability at the expense of consistency
+> 
+> expected tradeoff
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=4&selection=309,13,311,65&color=yellow|p.4]]
+> > These systems differ on their conflict resolution procedures. For instance, Coda and Ficus perform system level conflict resolution and Bayou allows application level resolution
+> 
+> difference in conflict resolutions
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=4&selection=347,52,351,63&color=yellow|p.4]]
+> > Antiquity is a wide-area distributed storage system designed to handle multiple server failures [23]. It uses a secure log to preserve data integrity, replicates each log on multiple servers for durability, and uses Byzantine fault tolerance protocols to ensure data consistency.
+> 
+> handle failures + data integrity + durability + consistency
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=4&selection=352,23,353,67&color=important|p.4]]
+> > Dynamo does not focus on the problem of data integrity and security and is built for a trusted environment.
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=4&selection=359,0,384,38&color=important|p.4]]
+> > Compared to Bigtable, Dynamo targets applications that require only key/value access with primary focus on high availability where updates are not rejected even in the wake of network partitions or server failures.
+> 
+> Dynamo only need key/value access
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=5&selection=14,45,36,17&color=important|p.5]]
+> > “always writeable” data store where no updates are rejected due to failures or concurrent writes
+> 
+> req1
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=5&selection=37,40,39,31&color=important|p.5]]
+> > Dynamo is built for an infrastructure within a single administrative domain where all nodes are assumed to be trusted
+> 
+> req2
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=5&selection=40,7,40,56&color=important|p.5]]
+> > do not require support for hierarchical namespace
+> 
+> req3
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=5&selection=59,34,61,12&color=important|p.5]]
+> > t require at least 99.9% of read and write operations to be performed within a few hundred milliseconds
+> 
+> req4
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=5&selection=102,30,132,28&color=yellow|p.5]]
+> >  In addition to the actual data persistence component, the system needs to have scalable and robust solutions for load balancing, membership and failure detection, failure recovery, replica synchronization, overload handling, state transfer, concurrency and job scheduling, request marshalling, request routing, system monitoring and alarming, and configuration management
+> 
+> required solutions for storage system
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=5&selection=181,18,189,43&color=yellow|p.5]]
+> > The context encodes system metadata about the object that is opaque to the caller and includes information such as the version of the object. The context information is stored along with the object so that the system can verify the validity of the context object supplied in the put request.
+> 
+> system interface
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=5&selection=191,30,193,54&color=red|p.5]]
+> > It applies a MD5 hash on the key to generate a 128-bit identifier, which is used to determine the storage nodes that are responsible for serving the key
+> 
+> how storage nodes is picked
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=6,8,7,48&color=yellow|p.6]]
+> > the random position assignment of each node on the ring leads to non-uniform data and load distribution.
+> 
+> harder to rebalance
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=7,49,10,1&color=yellow|p.6]]
+> > Second, the basic algorithm is oblivious to the heterogeneity in the performance of nodes. 
+> 
+> bigger machines will get assigned multiple nodes
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=31,33,35,13&color=red|p.6]]
+> >  virtual node looks like a single node in the system, but each node can be responsible for more than one virtual node. Effectively, when a new node is added to the system, it is assigned multiple positions (henceforth, “tokens”) in the ring. 
+> 
+> Dynamo implementation of consistent hashing
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=46,1,59,47&color=red|p.6]]
+> > oad handled by this node is evenly dispersed across the remaining available nodes.
+> 
+> how load is balanced
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=70,0,72,30&color=red|p.6]]
+> > The number of virtual nodes that a node is responsible can decided based on its capacity, accounting for heterogeneity in the physical infrastructure
+> 
+> accounts for heterogeneity
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=78,0,79,21&color=yellow|p.6]]
+> > To achieve high availability and durability, Dynamo replicates its data on multiple host
+> 
+> needs for replication
+
