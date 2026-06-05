@@ -1,6 +1,5 @@
 
 **Title:**  Dynamo: Amazon's Highly Available Key-value Store
-**Name:**
 
 **Authors:**  
 **Published in:**
@@ -11,7 +10,11 @@
 
 ### 1. What is your take-away message from this paper?
 
-> _Write your summary insight here._
+- trade-off of consistency and availability
+- use eventual consistency to increase availability
+- scale incrementally requires dynamic partition
+- optimistic replication of partitions to increase availability but requires conflict resolution
+- data versioning is used to handle eventual consistency and requires 
 
 ---
 
@@ -31,8 +34,8 @@
 	- How can a system designed to be highly available across datacenters and failures even at the cost of consistency?
 
 - Why doesn’t the people problem have a **trivial solution**?
-	- because in CAP theorem, system design must chose CP or AP which means that there is a tradeoff of consistency and availability
-	- availability can be increased by using optimistic replication but leads to conflict resolution
+	- because in CAP theorem, system design must chose CP or AP which means that there is a tradeoff of **consistency and availability**
+	- availability can be increased by using optimistic replication but leads to **conflict resolution**
 		- when to resolve: at write or read?
 		- who to resolve: data store or application?
 
@@ -66,7 +69,7 @@
 		- number of virtual nodes of a machine is decided based on capacity
 		- because ranges are scattered, **loads get spread across many different machines** and not dump into the next neighbor in case of failure
 		- one new node joins, accepts equivalent amount of load from other nodes
-	- **replication**: 
+	- **replication**: //TODO
 	- **high availability**: vector clocks + reconciliation during reads -> version size is decoupled from update rates
 	- **temporary failures**: sloppy quorum and hinted handoff -> high availability + durability guarantee when some replicas not available
 	- **recovering from permanent failure**: anti-entropy using Merkle trees -> synchronizes divergent replicas in the background
@@ -127,9 +130,9 @@
 
 - Q1: What is smart partitioning schemes for load balancing?
 
-- Q2:
+- Q2: Why Dynamo has data versioning, but DynamoDB does not?
 
-- Q3:
+- Q3: If DynamoDB does not aware of multiple versions of data, then does this affect business logic?
 
 
 > [!PDF|] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=1&selection=9,0,10,18|Dynamo: Amazon’s Highly Available Key-value Store, p.1]]
@@ -355,6 +358,12 @@
 > 
 > system interface
 
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=5&selection=199,0,200,20&color=yellow|p.5]]
+> > One of the key design requirements for Dynamo is that it must scale incrementally.
+> 
+> key requirements
+> 
+
 > [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=5&selection=191,30,193,54&color=red|p.5]]
 > > It applies a MD5 hash on the key to generate a 128-bit identifier, which is used to determine the storage nodes that are responsible for serving the key
 > 
@@ -389,4 +398,71 @@
 > > To achieve high availability and durability, Dynamo replicates its data on multiple host
 > 
 > needs for replication
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=89,29,91,38&color=yellow|p.6]]
+> > In addition to locally storing each key within its range, the coordinator replicates these keys at the N-1 clockwise successor nodes in the ring.
+> 
+> what this means is if the ring is B -> C -> D, then the key not only stored in B but also C and D as well
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=111,30,112,13&color=yellow|p.6]]
+> > preference list contains more than N nodes.
+> 
+> how replicas are used with partitions
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=161,38,164,65&color=yellow|p.6]]
+> > When a customer wants to add an item to (or remove from) a shopping cart and the latest version is not available, the item is added to (or removed from) the older version and the divergent versions are reconciled later
+> 
+> data versioning use cases
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=165,44,168,28&color=yellow|p.6]]
+> > Dynamo treats the result of each modification as a new and immutable version of the data. It allows for multiple versions of an object to be present in the system at the same time.
+> 
+> mechanism that guarantee eventual consistency under failure
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=181,0,196,16&color=yellow|p.6]]
+> > system itself can determine the authoritative version (syntactic reconciliation).
+> 
+> 1st method of conflict resolution
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=211,55,233,15&color=yellow|p.6]]
+> > system cannot reconcile the multiple versions of the same object and the client must perform the reconciliation in order to collapse multiple branches of data evolution back into one (semantic reconciliation)
+> 
+> 2nd method of conflict resolution
+
+
+> [!PDF|note] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=234,59,236,42&color=note|p.6]]
+> >  Using this reconciliation mechanism, an “add to cart” operation is never lost. However, deleted items can resurface
+> 
+> unwanted behavior of reconciliation mechanism
+
+
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=258,48,260,51&color=red|p.6]]
+> > design applications that explicitly acknowledge the possibility of multiple versions of the same data (in order to never lose any updates).
+> 
+> applications need to be aware of multiple version for Dynamo only, not DynamoDB
+
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=261,0,262,46&color=red|p.6]]
+> > Dynamo uses vector clocks [12] in order to capture causality between different versions of the same object.
+> 
+> because of branching in data versions
+
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=264,47,266,50&color=red|p.6]]
+> > One can determine whether two versions of an object are on parallel branches or have a causal ordering, by examine their vector clocks.
+> 
+> check if two versions are related
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=6&selection=271,0,272,36&color=red|p.6]]
+> > In Dynamo, when a client wishes to update an object, it must specify which version it is updating
+> 
+> internal state of `put()`
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=7&selection=0,0,21,12&color=red|p.7]]
+> > Dynamo has access to multiple branches that cannot be syntactically reconciled, it will return all the objects at the leaves, with the corresponding version information in the context. An update using this context is considered to have reconciled the divergent versions and the branches are collapsed into a single new version.
+> 
+> conflict resolution interface
 

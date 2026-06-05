@@ -332,3 +332,40 @@
 		- static vs dynamic management
 			- DN is ideal for load balancing
 			- simplifies by assigning managers statically at the creation time
+
+# 26/02
+
+- Distributed system defined by nodes connected via LAN or WAN, communication exclusively through messages
+- Message communication time significantly greater than local event time
+- A -> B indicates event A happened before event B
+- Causality determined by:
+  - Local Events -> if A and B on same node and A precedes B
+  - Communication Events -> sending message must happen before receiving message
+Rules applied:
+- Monotonic Increase -> on single machine, if B follows A, timestamp B > timestamp A
+- Send/Receive Integrity -> timestamp of sent message < timestamp of received message
+- Clock Update -> upon receiving message, assign timestamp Max(local, received) + 1
+- Concurrent Events -> if Clock(A) < Clock(B), does not mean A happened before B, could be concurrent
+- Logical clocks provide partial order, some tasks require total order
+- Total Ordering -> constructed from partial order by breaking ties among concurrent events
+- Tie-Breaking -> arbitrary but consistent, smaller PID wins
+- Deterministic Algorithms -> built using logical clocks with consistent tiebreaking rules
+- Lamport's algorithm ensures only one node accesses shared resource at time
+Process:
+- Request -> node puts request in local queue, broadcasts request with timestamp to all other nodes
+- Acknowledgment -> other nodes acknowledge lock request
+- Entry Condition -> node believes it has lock if:
+  - own lock request at head of local queue
+  - received acknowledgments from all other nodes OR received lock requests from all other nodes with later timestamps
+Correctness hinges on three guarantees:
+- FIFO Ordering -> messages go in order between any two nodes
+- Reliability -> no loss of messages
+- Causality -> adheres to happened-before relationship
+- Out-of-Order Anomaly -> if messages arrive out of order, node might incorrectly assume it has lock, violating mutual exclusion
+- In scenarios with real-world assets, logical clocks insufficient
+- Physical clocks must be synchronized to prevent anomalies
+- Deposit at ATM X, withdraw at ATM Y -> if ATM Y clock lags, withdrawal might fail as bank sees withdrawal before deposit
+- Individual Drift -> rate local clock drifts relative to perfect atomic clock
+- Mutual Drift -> maximum difference between clocks of any two nodes
+- IPC Lower Bound -> minimum time for inter-process communication
+- If met, lower bound of communication time exceeds potential drift, avoiding temporal anomalies
