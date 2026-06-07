@@ -12,8 +12,6 @@ cleanup.sh
 # .jekyll-metadata
 # _includes/notes_graph.json
 
-# Obsidian config
-.obsidian/
 
 # macOS
 .DS_Store
