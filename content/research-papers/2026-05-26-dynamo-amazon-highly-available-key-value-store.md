@@ -12,7 +12,7 @@
 
 - trade-off of consistency and availability
 - use eventual consistency to increase availability
-- scale incrementally requires dynamic partition
+- incremental scaling requires dynamic partition
 - optimistic replication of partitions to increase availability but requires conflict resolution
 - data versioning is used to handle eventual consistency and requires 
 
@@ -466,3 +466,50 @@
 > 
 > conflict resolution interface
 
+> [!PDF|] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=7&selection=78,1,79,59|Dynamo: Amazon’s Highly Available Key-value Store, p.7]]
+> >  possible issue with vector clocks is that the size of vector clocks may grow if many servers coordinate the writes to an object
+> 
+> vector clocks size might grow too much
+
+> [!PDF|] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=7&selection=86,5,90,61|Dynamo: Amazon’s Highly Available Key-value Store, p.7]]
+> > Dynamo employs the following clock truncation scheme: Along with each (node, counter) pair, Dynamo stores a timestamp that indicates the last time the node updated the data item. When the number of (node, counter) pairs in the vector clock reaches a threshold (say 10), the oldest pair is removed from the clock
+> 
+> truncation scheme for vector clock
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=7&selection=141,0,145,6&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.7]]
+> > There are two strategies that a client can use to select a node: (1) route its request through a generic load balancer that will select a node based on load information, or (2) use a partition-aware client library that routes requests directly to the appropriate coordinator nodes.
+> 
+> 1st approach: cost steps to route request, client lighter
+> 2st approach: client library decides how to route request directly to node but more dependency
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=7&selection=183,0,188,43&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.7]]
+> > To maintain consistency among its replicas, Dynamo uses a consistency protocol similar to those used in quorum systems. This protocol has two key configurable values: R and W. R is the minimum number of nodes that must participate in a successful read operation. W is the minimum number of nodes that must participate in a successful write operation
+> 
+> not strict quorum because of sloppy quorums and eventual consistency
+> read and writes may involve different set of nodes
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=52,0,55,10&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> > If Dynamo used a traditional quorum approach it would be unavailable during server failures and network partitions, and would have reduced durability even under the simplest of failure conditions
+> 
+> reduced durability if using strict quorum
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=65,26,68,64&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> >  if node A is temporarily down or unreachable during a write operation then a replica that would normally have lived on A will now be sent to node D. This is done to maintain the desired availability and durability guarantees. 
+> 
+> hinted handoff to maintain desired availability and durability
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=73,0,92,13&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> > Nodes that receive hinted replicas will keep them in a separate local database that is scanned periodically. Upon detecting that A has recovered, D will attempt to deliver the replica to A. Once the transfer succeeds, D may delete the object from its local store without decreasing the total number of replicas in the system
+> 
+> how hinted handoff works
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=93,0,100,6&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> > Using hinted handoff, Dynamo ensures that the read and write operations are not failed due to temporary node or network failures. Applications that need the highest level of availability can set W to 1, which ensures that a write is accepted as long as a single node in the system has durably written the key it to its local store.
+> 
+> W to 1 = higher chance of accepted write
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=136,33,137,34&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> > There are scenarios under which hinted replicas become unavailable
+> 
+> 

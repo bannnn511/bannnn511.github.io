@@ -23,3 +23,5 @@ cleanup.sh
 *.tmp
 .env
 .claude
+
+/.obsidian/appearance.json

@@ -6,33 +6,29 @@
       {
         "id": "2726a0d6ae0e20b4",
         "type": "tabs",
-        "dimension": 56.041131105398456,
         "children": [
           {
             "id": "87fdeeadd8f894b7",
             "type": "leaf",
             "state": {
-              "type": "pdf",
+              "type": "split-diff-view",
               "state": {
-                "file": "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
-                "page": 6,
-                "left": 12,
-                "top": 88,
-                "zoom": 1.1
+                "aFile": "content/stuff/ml_sub/subtitle.txt",
+                "bFile": "content/stuff/ml_sub/subtitle.txt",
+                "aRef": ""
               },
-              "icon": "lucide-file-text",
-              "title": "Dynamo: Amazon’s Highly Available Key-value Store"
+              "icon": "diff",
+              "title": "Diff: subtitle.txt  (Working Tree)"
             }
           }
         ]
       },
       {
-        "id": "0990c919dbc47f5f",
+        "id": "e5455ef5eb2f51f1",
         "type": "tabs",
-        "dimension": 43.958868894601544,
         "children": [
           {
-            "id": "1c9011f9c3b62c8e",
+            "id": "2f49e4e7771352f1",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -102,7 +98,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 300,
+    "collapsed": true
   },
   "right": {
     "id": "b98975ad46934b99",
@@ -222,9 +219,15 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "a0c73dd8a818bd6e",
+  "active": "87fdeeadd8f894b7",
   "lastOpenFiles": [
     "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
-    "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md"
+    "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
+    "content/research-papers/paper/The Recovery Manager of a Data Management System.pdf",
+    "Clippings/Lessons from scaling PostgreSQL queues to 100K events.md",
+    "Clippings/Every UPDATE Leaves a Ghost MVCC, Bloat, and VACUUM in PostgreSQL.md",
+    "Clippings/What is Apache Kafka and how does it work?.md",
+    "Clippings/Snapshot Isolation vs Serializability.md",
+    "Clippings/The OLED Xbox Ally X20 is so good, Asus will sell it solo.md"
   ]
 }

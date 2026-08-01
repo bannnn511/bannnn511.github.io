@@ -1,1 +1,6 @@
-{}
+{
+  "textFontFamily": "Berkeley Mono",
+  "monospaceFontFamily": "Berkeley Mono,JetBrainsMono Nerd Font",
+  "interfaceFontFamily": "",
+  "baseFontSize": 14
+}
