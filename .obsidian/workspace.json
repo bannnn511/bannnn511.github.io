@@ -4,31 +4,33 @@
     "type": "split",
     "children": [
       {
-        "id": "2726a0d6ae0e20b4",
+        "id": "ff2272302b1bd625",
         "type": "tabs",
         "children": [
           {
-            "id": "87fdeeadd8f894b7",
+            "id": "d5281d4481d68f37",
             "type": "leaf",
             "state": {
-              "type": "split-diff-view",
+              "type": "pdf",
               "state": {
-                "aFile": "content/stuff/ml_sub/subtitle.txt",
-                "bFile": "content/stuff/ml_sub/subtitle.txt",
-                "aRef": ""
+                "file": "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
+                "page": 8,
+                "left": -4,
+                "top": 66,
+                "zoom": 0.86
               },
-              "icon": "diff",
-              "title": "Diff: subtitle.txt  (Working Tree)"
+              "icon": "lucide-file-text",
+              "title": "Dynamo: Amazon’s Highly Available Key-value Store"
             }
           }
         ]
       },
       {
-        "id": "e5455ef5eb2f51f1",
+        "id": "ed30aeb4b9823499",
         "type": "tabs",
         "children": [
           {
-            "id": "2f49e4e7771352f1",
+            "id": "5f88b45965984fdb",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -61,7 +63,9 @@
               "type": "file-explorer",
               "state": {
                 "sortOrder": "alphabetical",
-                "autoReveal": false
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
               },
               "icon": "lucide-folder-closed",
               "title": "Files"
@@ -219,10 +223,10 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "87fdeeadd8f894b7",
+  "active": "d5281d4481d68f37",
   "lastOpenFiles": [
-    "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
     "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
+    "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
     "content/research-papers/paper/The Recovery Manager of a Data Management System.pdf",
     "Clippings/Lessons from scaling PostgreSQL queues to 100K events.md",
     "Clippings/Every UPDATE Leaves a Ghost MVCC, Bloat, and VACUUM in PostgreSQL.md",

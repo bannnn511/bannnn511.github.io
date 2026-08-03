@@ -70,8 +70,12 @@
 		- because ranges are scattered, **loads get spread across many different machines** and not dump into the next neighbor in case of failure
 		- one new node joins, accepts equivalent amount of load from other nodes
 	- **replication**: //TODO
-	- **high availability**: vector clocks + reconciliation during reads -> version size is decoupled from update rates
+	- **data versioning**: 
+		- vector clocks + reconciliation during reads -> version size is decoupled from update rates
 	- **temporary failures**: sloppy quorum and hinted handoff -> high availability + durability guarantee when some replicas not available
+		- sloppy quorum: not strict quorum for availability (server failures + network partition)
+		- hinted handoff so that other nodes can pick up the work of downed replicas 
+			- for hinted handoff, if a node is down another node not in replica set will be chosen to maintain the desired availability
 	- **recovering from permanent failure**: anti-entropy using Merkle trees -> synchronizes divergent replicas in the background
 	- **membership + failure detection**: gossip protocol + failure detection -> preserve symmetry + avoid having centralized registry for storing membership + node liveness information
 
@@ -513,3 +517,58 @@
 > > There are scenarios under which hinted replicas become unavailable
 > 
 > 
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=138,27,150,60&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> > To handle this and other threats to durability, Dynamo implements an anti-entropy (replica synchronization) protocol to keep the replicas synchronized.
+> 
+> for permanent failures
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=153,0,169,11&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> > detect the inconsistencies between replicas faster and to minimize the amount of transferred data, Dynamo uses Merkle trees [13].
+> 
+> each branch of Merkle tree can be checked independently without requiring nodes to download the entire tree
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=174,35,176,29&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> > erkle trees help in reducing the amount of data that needs to be transferred while checking for inconsistencies among replica
+
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=186,0,189,58&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> > Dynamo uses Merkle trees for anti-entropy as follows: Each node maintains a separate Merkle tree for each key range (the set of keys covered by a virtual node) it hosts. This allows nodes to compare whether the keys within a key range are up-to-date
+> 
+> make sure keys within a key range are up-to-date
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=212,36,214,66&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> > The disadvantage with this scheme is that many key ranges change when a node joins or leaves the system thereby requiring the tree(s) to be recalculated
+> 
+> rebalance issues
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=238,19,240,25&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> > it was deemed appropriate to use an explicit mechanism to initiate the addition and removal of nodes from a Dynamo ring.
+> 
+> adding nodes should be manually not automatically
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=8&selection=282,39,298,44&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.8]]
+> > A gossip-based protocol propagates membership changes and maintains an eventually consistent view of membership. Each node contacts a peer chosen at random every second and the two nodes efficiently reconcile their persisted membership change histories.
+> 
+> gossip-based protocol for service discovery
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=0,54,3,9&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > The mappings stored at different Dynamo nodes are reconciled during the same communication exchange that reconciles the membership change histories
+> 
+> how membership information is exchanged
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=5,49,7,14&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > his allows each node to forward a key’s read/write operations to the right set of nodes directly
+> 
+> membership facilitate read/write operations
+
+ > [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=41,0,43,19&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > Seeds can be obtained either from static configuration or from a configuration service. Typically seeds are fully functional nodes in the Dynamo ring.
+> 
+> seeds prevent logical partition
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=13,1,30,40&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > he mechanism described above could temporarily result in a logically partitioned Dynamo ring. For example, the administrator could contact node A to join A to the ring, then contact node B to join B to the ring. In this scenario, nodes A and B would each consider itself a member of the ring, yet neither would be immediately aware of the other.
+> 
+> logical partition
+
