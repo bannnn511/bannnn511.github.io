@@ -1,5 +1,6 @@
 
-**Title:**  Dynamo: Amazon's Highly Available Key-value Store
+****
+# Dynamo: Amazon's Highly Available Key-value Store
 
 **Authors:**  
 **Published in:**
@@ -571,4 +572,151 @@
 > > he mechanism described above could temporarily result in a logically partitioned Dynamo ring. For example, the administrator could contact node A to join A to the ring, then contact node B to join B to the ring. In this scenario, nodes A and B would each consider itself a member of the ring, yet neither would be immediately aware of the other.
 > 
 > logical partition
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=100,0,102,39&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > Decentralized failure detection protocols use a simple gossip-style protocol that enable each node in the system to learn about the arrival (or departure) of other nodes. 
+> 
+> deprecated mechanism for service discovery
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=136,0,140,58&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > When a new node (say X) is added into the system, it gets assigned a number of tokens that are randomly scattered on the ring. For every key range that is assigned to node X, there may be a number of nodes (less than or equal to N) that are currently in charge of handling keys that fall within its token range. 
+> 
+> rebalancing nodes
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=181,0,192,15&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > by adding a confirmation round between the source and the destination, it is made sure that the destination node does not receive any duplicate transfers for a given key range
+> 
+> deduplication
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=267,1,281,38&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > he main reason for designing a pluggable persistence component is to choose the storage engine best suited for an application’s access patterns. 
+> 
+> storage engine follows access pattern
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=285,0,300,25&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > The majority of Dynamo’s production instances use BDB Transactional Data Store.
+> 
+> 
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=198,1,229,24&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > In Dynamo, each storage node has three main software components: request coordination, membership and failure detection, and a local persistence engine. All these components are implemented in Java.
+> 
+> 
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=301,0,303,67&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > The request coordination component is built on top of an eventdriven messaging substrate where the message processing pipeline is split into multiple stages similar to the SEDA architecture [24]
+> 
+> 
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=10&selection=31,32,52,8&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.10]]
+> > Although it is desirable always to have the first node among the top N to coordinate the writes thereby serializing all writes at a single location, this approach has led to uneven load distribution resulting in SLA violations. This is because the request load is not uniformly distributed across objects.
+
+
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=10&selection=21,23,29,59&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.10]]
+> > If stale versions were returned in any of the responses, the coordinator updates those nodes with the latest version. This process is called read repair because it repairs replicas that have missed a recent update at an opportunistic time and relieves the anti-entropy protocol from having to do it
+
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=10&selection=54,41,75,8&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.10]]
+> > he coordinator for a write is chosen to be the node that replied fastest to the previous read operation which is stored in the context information of the request.
+> 
+> how coordinator is chosen among top N nodes
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=10&selection=223,57,224,43&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.10]]
+> > the value of N determines the durability of each object.
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=10&selection=226,1,227,11&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.10]]
+> > he values of W and R impact object availability, durability and consistency
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=11&selection=1,9,6,7&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.11]]
+> > However, this is not necessarily true here. For instance, the vulnerability window for durability can be decreased by increasing W. This may increase the probability of rejecting request
+
+
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=11&selection=119,49,122,46&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.11]]
+> > The involvement of multiple storage nodes in read and write operations makes it even more challenging, since the performance of these operations is limited by the slowest of the R or W replicas.
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=11&selection=145,33,164,1&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.11]]
+> > Dynamo provides the ability to trade-off durability guarantees for performance. In the optimization each storage node maintains an object buffer in its main memory. Each write operation is stored in the buffer and gets periodically written to storage by a writer thread.
+> 
+> not flushed yet
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=11&selection=175,12,177,24&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.11]]
+> > his scheme trades durability for performance. In this scheme, a server crash can result in missing writes that were queued up in the buffer.
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=11&selection=228,13,230,12&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.11]]
+> >  This section discusses the load imbalance seen in Dynamo and the impact of different partitioning strategies on load distribution
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=11&selection=232,1,237,36&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.11]]
+> > he total number of requests received by each node was measured for a period of 24 hours - broken down into intervals of 30 minutes. In a given time window, a node is considered to be “inbalance”, if the node’s request load deviates from the average load by a value a less than a certain threshold (here 15%). Otherwise the node was deemed “out-of-balance”
+> 
+> how requests are monitored
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=11,57,15,56&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> > The tokens of all nodes are ordered according to their values in the hash space. Every two consecutive tokens define a range. The last token and the first token form a range that "wraps" around from the highest value to the lowest value in the hash space.
+> 
+> St1 token range
+
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=36,21,39,70&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> > when a new node joins the system, it needs to “steal” its key ranges from other nodes. However, the nodes handing the key ranges off to the new node have to scan their local persistence store to retrieve the appropriate set of data items.
+> 
+> ST1 - "scan" requires IO on a production node -> resource intensive
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=44,38,59,8&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> > this significantly slows the bootstrapping process and during busy shopping season, when the nodes are handling millions of requests a day, the bootstrapping has taken almost a day to complete
+> 
+> ST1 - bootstrapping to heavy
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=63,0,70,12&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> > when a node joins/leaves the system, the key ranges handled by many nodes change and the Merkle trees for the new ranges need to be recalculated
+> 
+> ST1 - merkle tree need to be recalculated
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=71,18,73,57&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> >  Finally, there was no easy way to take a snapshot of the entire key space due to the randomness in key ranges, and this made the process of archival complicated
+> 
+> ST1 - hard to snapshot?
+
+## Strategy 1 visualization
+
+Use the controls to add node D and then move its newly assigned ranges. The example illustrates why assigning random tokens makes a single node join affect several disjoint parts of the ring.
+
+<figure>
+  <object
+    type="image/svg+xml"
+    data="/assets/dynamo-strategy-1.svg"
+    width="100%"
+    style="aspect-ratio: 960 / 620"
+  >
+    Interactive visualization of Dynamo partitioning Strategy 1.
+  </object>
+  <figcaption>
+    Strategy 1 couples partition boundaries with token placement. When D joins,
+    existing nodes must scan and transfer several ranges, and affected Merkle
+    trees must be recalculated.
+  </figcaption>
+</figure>
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=76,0,77,52&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> > The fundamental issue with this strategy is that the schemes for data partitioning and data placement are intertwined
+> 
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=90,30,92,64&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> >  In this strategy, the tokens are only used to build the function that maps values in the hash space to the ordered lists of nodes and not to decide the partitioning
+> 
+> ST2 - data partitioning
+
+> [!PDF|note] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=92,65,95,17&color=note|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> >  A partition is placed on the first N unique nodes that are encountered while walking the consistent hashing ring clockwise from the end of the partition.
+> 
+> ST2 - data placement
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=97,53,100,31&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> > he primary advantages of this strategy are: (i) decoupling of partitioning and partition placement, and (ii) enabling the possibility of changing the placement scheme at runtime
+
 

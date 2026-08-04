@@ -1,0 +1,308 @@
+<svg id="dynamo-strategy-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" role="img" aria-labelledby="title description">
+  <title id="title">Dynamo Strategy 1: random tokens per node</title>
+  <desc id="description">An interactive consistent-hashing ring. Use the controls to see node D join and take several disjoint key ranges from existing nodes.</desc>
+  <style>
+    :root { color-scheme: light dark; }
+    svg { background: #fbfaf7; font-family: ui-sans-serif, system-ui, sans-serif; }
+    text { fill: #24211d; }
+    .heading { font-size: 25px; font-weight: 700; }
+    .subheading { font-size: 14px; fill: #625d55; }
+    .ring-base { fill: none; stroke: #ded9d0; stroke-width: 25; }
+    .range { fill: none; stroke-width: 20; stroke-linecap: butt; transition: opacity 250ms ease; }
+    .token { stroke: #fbfaf7; stroke-width: 3; transition: opacity 250ms ease, transform 250ms ease; transform-box: fill-box; transform-origin: center; }
+    .token-label { font-size: 13px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+    .target { fill: #fbfaf7; stroke: #7c3aed; stroke-width: 4; stroke-dasharray: 3 2; animation: pulse 1.2s ease-in-out infinite alternate; }
+    .center-label { font-size: 16px; font-weight: 700; text-anchor: middle; }
+    .center-note { font-size: 13px; fill: #625d55; text-anchor: middle; }
+    .legend text { font-size: 14px; dominant-baseline: middle; }
+    .direct-control { cursor: pointer; }
+    .direct-control:hover text, .direct-control:focus text { text-decoration: underline; }
+    .transfer-dot { fill: #ffffff; stroke: #7c3aed; stroke-width: 2; pointer-events: none; }
+    .autoplay-status { cursor: pointer; }
+    .autoplay-status rect { fill: #f1eee8; stroke: #9b958c; stroke-width: 1.5; }
+    .autoplay-status text { font: 700 12px ui-monospace, monospace; text-anchor: middle; dominant-baseline: middle; letter-spacing: .04em; }
+    .autoplay-status:hover rect, .autoplay-status:focus rect { stroke: #24211d; stroke-width: 2.5; }
+    .panel { fill: #f1eee8; stroke: #ded9d0; }
+    .explain-title { font-size: 20px; font-weight: 700; }
+    .explain { font-size: 15px; fill: #3f3a34; }
+    .callout { fill: #fff8e6; stroke: #e4b341; stroke-width: 1.5; }
+    .callout-text { font-size: 14px; fill: #514426; }
+    .button { cursor: pointer; }
+    .button rect { fill: #ffffff; stroke: #9b958c; stroke-width: 1.5; }
+    .button text { font-size: 14px; font-weight: 650; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+    .button:hover rect, .button:focus rect { stroke: #24211d; stroke-width: 2.5; }
+    .button.active rect { fill: #24211d; stroke: #24211d; }
+    .button.active text { fill: #ffffff; }
+    .changed { animation: reveal-range 900ms ease-out both; }
+    @keyframes pulse { to { transform: scale(1.35); } }
+    @keyframes reveal-range { from { stroke-dasharray: 0 1000; } }
+    @media (prefers-reduced-motion: reduce) {
+      .target, .changed { animation: none; }
+      .range, .token { transition: none; }
+    }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #181715; }
+      text { fill: #eeeae2; }
+      .subheading, .center-note { fill: #aaa399; }
+      .ring-base { stroke: #37332e; }
+      .token { stroke: #181715; }
+      .target { fill: #181715; }
+      .panel { fill: #24211e; stroke: #423d37; }
+      .explain { fill: #d5cfc5; }
+      .callout { fill: #30291a; stroke: #a77c22; }
+      .callout-text { fill: #ead8ad; }
+      .button rect, .autoplay-status rect { fill: #24211e; stroke: #777067; }
+      .button:hover rect, .button:focus rect, .autoplay-status:hover rect, .autoplay-status:focus rect { stroke: #eeeae2; }
+      .button.active rect { fill: #eeeae2; stroke: #eeeae2; }
+      .button.active text { fill: #181715; }
+    }
+  </style>
+
+  <text class="heading" x="38" y="42">Strategy 1 — T random tokens per node</text>
+  <text class="subheading" x="38" y="67">Each arc ends at the token of the node that owns that key range.</text>
+  <g class="autoplay-status" id="autoplay-control" role="button" tabindex="0" aria-label="Pause automatic animation" transform="translate(758 27)">
+    <rect width="164" height="32" rx="8"/>
+    <text id="autoplay-label" x="82" y="16">AUTOPLAY: ON</text>
+  </g>
+
+  <g id="ring" aria-label="Consistent hashing ring">
+    <circle class="ring-base" cx="300" cy="300" r="184"/>
+    <g id="ranges"/>
+    <g id="transfers" aria-hidden="true"/>
+    <g id="tokens"/>
+    <text class="center-label" x="300" y="289" id="center-title">Initial ring</text>
+    <text class="center-note" x="300" y="315" id="center-line-1">A, B and C have random tokens</text>
+    <text class="center-note" x="300" y="335" id="center-line-2">Partitions have unequal sizes</text>
+  </g>
+
+  <g class="legend" transform="translate(105 520)">
+    <circle cx="0" cy="0" r="8" fill="#2563eb"/><text x="14" y="1">Node A</text>
+    <circle cx="105" cy="0" r="8" fill="#db552f"/><text x="119" y="1">Node B</text>
+    <circle cx="210" cy="0" r="8" fill="#20966f"/><text x="224" y="1">Node C</text>
+    <g class="direct-control" id="node-d-control" role="button" tabindex="0" aria-label="Add node D to the ring">
+      <circle cx="315" cy="0" r="8" fill="#7c3aed"/><text x="329" y="1">Node D — click to join</text>
+    </g>
+  </g>
+
+  <g transform="translate(550 95)">
+    <rect class="panel" width="370" height="410" rx="14"/>
+    <text class="explain-title" x="25" y="42" id="step-title">1. Initial placement</text>
+    <text class="explain" x="25" y="80" id="line-1">Every physical node receives several</text>
+    <text class="explain" x="25" y="104" id="line-2">random positions on the hash ring.</text>
+    <text class="explain" x="25" y="141" id="line-3">Adjacent tokens define the partitions,</text>
+    <text class="explain" x="25" y="165" id="line-4">so partitioning and placement are tied.</text>
+
+    <rect class="callout" x="20" y="205" width="330" height="105" rx="10"/>
+    <text class="callout-text" x="38" y="235" id="cost-1">Observation:</text>
+    <text class="callout-text" x="38" y="261" id="cost-2">Random token spacing creates ranges</text>
+    <text class="callout-text" x="38" y="285" id="cost-3">with different sizes.</text>
+
+    <text class="subheading" x="25" y="355">Choose a step:</text>
+    <g class="button active" id="button-initial" role="button" tabindex="0" transform="translate(25 370)">
+      <rect width="92" height="30" rx="7"/><text x="46" y="15">Initial</text>
+    </g>
+    <g class="button" id="button-join" role="button" tabindex="0" transform="translate(127 370)">
+      <rect width="92" height="30" rx="7"/><text x="46" y="15">Add D</text>
+    </g>
+    <g class="button" id="button-move" role="button" tabindex="0" transform="translate(229 370)">
+      <rect width="116" height="30" rx="7"/><text x="58" y="15">Move ranges</text>
+    </g>
+  </g>
+
+  <script><![CDATA[
+    (() => {
+      const ns = 'http://www.w3.org/2000/svg'
+      const cx = 300, cy = 300, radius = 184
+      const colors = { A: '#2563eb', B: '#db552f', C: '#20966f', D: '#7c3aed' }
+      const initial = [
+        { angle: -80, owner: 'A' }, { angle: -35, owner: 'B' },
+        { angle: 5, owner: 'C' }, { angle: 20, owner: 'A' },
+        { angle: 75, owner: 'B' }, { angle: 110, owner: 'C' },
+        { angle: 140, owner: 'A' }, { angle: 195, owner: 'B' },
+        { angle: 240, owner: 'C' }
+      ]
+      const joining = [
+        { angle: -55, owner: 'D' }, { angle: 52, owner: 'D' },
+        { angle: 165, owner: 'D' }
+      ]
+
+      const svg = document.querySelector('#dynamo-strategy-1')
+      const ranges = document.querySelector('#ranges')
+      const transfers = document.querySelector('#transfers')
+      const tokens = document.querySelector('#tokens')
+      const autoplayControl = document.querySelector('#autoplay-control')
+      const text = id => document.querySelector('#' + id)
+      const states = ['initial', 'join', 'move']
+      let currentState = 'initial'
+      let playing = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      let hoverPaused = false
+      let focusPaused = false
+      const point = (angle, r = radius) => {
+        const radians = angle * Math.PI / 180
+        return { x: cx + r * Math.cos(radians), y: cy + r * Math.sin(radians) }
+      }
+      const arc = (start, end) => {
+        while (end <= start) end += 360
+        const a = point(start), b = point(end)
+        return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${end - start > 180 ? 1 : 0} 1 ${b.x} ${b.y}`
+      }
+      const sorted = values => [...values].sort((a, b) => a.angle - b.angle)
+      const clear = element => { while (element.firstChild) element.removeChild(element.firstChild) }
+      const element = (name, attributes) => {
+        const result = document.createElementNS(ns, name)
+        for (const [key, value] of Object.entries(attributes)) result.setAttribute(key, value)
+        return result
+      }
+
+      function drawRing(values, changedOwners = false) {
+        clear(ranges)
+        clear(transfers)
+        clear(tokens)
+        const ordered = sorted(values)
+        ordered.forEach((token, index) => {
+          const previous = ordered[(index - 1 + ordered.length) % ordered.length]
+          let start = previous.angle
+          let end = token.angle
+          if (index === 0) start -= 360
+          const path = element('path', {
+            d: arc(start, end),
+            class: `range ${changedOwners && token.owner === 'D' ? 'changed' : ''}`,
+            stroke: colors[token.owner]
+          })
+          ranges.appendChild(path)
+          if (changedOwners && token.owner === 'D') {
+            const dot = element('circle', { class: 'transfer-dot', r: 6 })
+            const motion = element('animateMotion', {
+              dur: `${1.8 + index * 0.08}s`, begin: `${index * 0.12}s`,
+              repeatCount: 'indefinite', path: path.getAttribute('d')
+            })
+            dot.appendChild(motion)
+            transfers.appendChild(dot)
+          }
+        })
+        ordered.forEach(token => {
+          const p = point(token.angle)
+          tokens.appendChild(element('circle', {
+            class: 'token', cx: p.x, cy: p.y, r: 13, fill: colors[token.owner]
+          }))
+          const label = element('text', {
+            class: 'token-label', x: p.x, y: p.y + 1, fill: '#ffffff'
+          })
+          label.textContent = token.owner
+          tokens.appendChild(label)
+        })
+      }
+
+      function showTargets() {
+        joining.forEach(token => {
+          const p = point(token.angle)
+          const target = element('circle', {
+            class: 'token target direct-control', cx: p.x, cy: p.y, r: 13,
+            role: 'button', tabindex: '0', 'aria-label': 'Transfer this range to node D'
+          })
+          target.addEventListener('click', () => setState('move'))
+          target.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              setState('move')
+            }
+          })
+          tokens.appendChild(target)
+          const label = element('text', {
+            class: 'token-label', x: p.x, y: p.y + 1, fill: colors.D
+          })
+          label.textContent = 'D'
+          tokens.appendChild(label)
+        })
+      }
+
+      const copy = {
+        initial: {
+          title: '1. Initial placement', center: 'Initial ring', center1: 'A, B and C have random tokens', center2: 'Partitions have unequal sizes',
+          lines: ['Every physical node receives several', 'random positions on the hash ring.', 'Adjacent tokens define the partitions,', 'so partitioning and placement are tied.'],
+          costs: ['Observation:', 'Random token spacing creates ranges', 'with different sizes.']
+        },
+        join: {
+          title: '2. Node D joins', center: 'D chooses tokens', center1: 'New positions are scattered', center2: 'around the ring',
+          lines: ['D is assigned multiple random tokens.', 'The outlined tokens show its targets.', 'Because they are scattered, D needs data', 'from several existing physical nodes.'],
+          costs: ['Consequence:', 'One joining node affects several', 'disjoint key ranges.']
+        },
+        move: {
+          title: '3. Ranges move to D', center: 'Ranges reassigned', center1: 'Purple arcs now belong to D', center2: 'Each source scans and transfers data',
+          lines: ['Each purple range previously belonged', 'to the next old token clockwise.', 'Those nodes scan local storage and send', 'the matching data to node D.'],
+          costs: ['Operational cost:', 'I/O-heavy scans, slow bootstrapping,', 'and Merkle-tree recalculation.']
+        }
+      }
+
+      function setCopy(state) {
+        const value = copy[state]
+        text('step-title').textContent = value.title
+        text('center-title').textContent = value.center
+        text('center-line-1').textContent = value.center1
+        text('center-line-2').textContent = value.center2
+        value.lines.forEach((line, i) => text(`line-${i + 1}`).textContent = line)
+        value.costs.forEach((line, i) => text(`cost-${i + 1}`).textContent = line)
+        ;['initial', 'join', 'move'].forEach(name => {
+          document.querySelector(`#button-${name}`).classList.toggle('active', name === state)
+        })
+      }
+
+      function setState(state) {
+        currentState = state
+        if (state === 'initial') drawRing(initial)
+        if (state === 'join') { drawRing(initial); showTargets() }
+        if (state === 'move') drawRing([...initial, ...joining], true)
+        setCopy(state)
+      }
+
+      function updateAutoplayLabel() {
+        text('autoplay-label').textContent = `AUTOPLAY: ${playing ? 'ON' : 'OFF'}`
+        autoplayControl.setAttribute('aria-label', playing ? 'Pause automatic animation' : 'Start automatic animation')
+      }
+
+      function toggleAutoplay() {
+        playing = !playing
+        updateAutoplayLabel()
+      }
+
+      ;['initial', 'join', 'move'].forEach(state => {
+        const button = document.querySelector(`#button-${state}`)
+        button.addEventListener('click', () => setState(state))
+        button.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            setState(state)
+          }
+        })
+      })
+
+      const nodeD = document.querySelector('#node-d-control')
+      nodeD.addEventListener('click', () => setState('join'))
+      nodeD.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          setState('join')
+        }
+      })
+      autoplayControl.addEventListener('click', toggleAutoplay)
+      autoplayControl.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          toggleAutoplay()
+        }
+      })
+      svg.addEventListener('mouseenter', () => { hoverPaused = true })
+      svg.addEventListener('mouseleave', () => { hoverPaused = false })
+      svg.addEventListener('focusin', () => { focusPaused = true })
+      svg.addEventListener('focusout', () => { focusPaused = false })
+      window.setInterval(() => {
+        if (!playing || hoverPaused || focusPaused || document.hidden) return
+        const next = (states.indexOf(currentState) + 1) % states.length
+        setState(states[next])
+      }, 3200)
+
+      setState('initial')
+      updateAutoplayLabel()
+    })()
+  ]]></script>
+</svg>

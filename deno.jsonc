@@ -4,7 +4,7 @@
   },
   "vendor": true,
   "tasks": {
-    "build": "                deno run --lock --cached-only --allow-write=./out --allow-read --allow-run --allow-net --allow-import         ./src/main.ts build --profile --blogroll",
+    "build": "                deno run --lock --cached-only --allow-write=./out --allow-read --allow-run --allow-net --allow-import --allow-env ./src/main.ts build --profile --blogroll",
     "watch": "rm -rf ./out && deno run --lock --cached-only --allow-write=./out --allow-read --allow-run --allow-net --allow-import --watch ./src/main.ts watch",
     "open": "live-server --host 127.0.0.1 --port 8080 ./out/www & open 'http://127.0.0.1:8080'",
     "serve": "deno task watch & deno task open",
