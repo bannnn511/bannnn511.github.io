@@ -138,6 +138,8 @@
 - Q2: Why Dynamo has data versioning, but DynamoDB does not?
 
 - Q3: If DynamoDB does not aware of multiple versions of data, then does this affect business logic?
+- Q4: If the node are chosen by md5, what about the top N preference list?
+	- 
 
 
 > [!PDF|] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=1&selection=9,0,10,18|Dynamo: Amazon’s Highly Available Key-value Store, p.1]]
@@ -830,5 +832,12 @@
 
 > [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=336,9,339,60&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
 > > his model works well for a system that contains couple of hundreds of nodes. However, scaling such a design to run with tens of thousands of nodes is not trivial because the overhead in maintaining the routing table increases with the system size
-> 
-> 
+
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=3&selection=89,7,93,51&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.3]]
+> >  if extensive personalization techniques are used then customers with longer histories require more processing which impacts performance at the high-end of the distribution. An SLA stated in terms of mean or median response times will not address the performance of this important customer segment.
+
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=9&selection=166,0,168,1&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.9]]
+> > Therefore, nodes B, C, and D will offer to and upon confirmation from X transfer the appropriate set of keys. 
+
