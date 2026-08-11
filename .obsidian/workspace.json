@@ -4,20 +4,21 @@
     "type": "split",
     "children": [
       {
-        "id": "4f0f33a7b32db50b",
+        "id": "1f571b45178aa651",
         "type": "tabs",
+        "dimension": 60.21377672209026,
         "children": [
           {
-            "id": "5bdca0fb738d6cc2",
+            "id": "19d955c3b35abdcf",
             "type": "leaf",
             "state": {
               "type": "pdf",
               "state": {
                 "file": "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
-                "page": 12,
-                "left": 30,
-                "top": 371,
-                "zoom": 1.33
+                "page": 15,
+                "left": -15,
+                "top": 632,
+                "zoom": 0.9718137254901962
               },
               "icon": "lucide-file-text",
               "title": "Dynamo: Amazon’s Highly Available Key-value Store"
@@ -26,18 +27,19 @@
         ]
       },
       {
-        "id": "cb3393d692ae5273",
+        "id": "619a22e269947cc7",
         "type": "tabs",
+        "dimension": 39.78622327790974,
         "children": [
           {
-            "id": "4c7ff3e27e412d54",
+            "id": "5d1ad9a5b980034a",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
                 "file": "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
                 "mode": "source",
-                "source": true
+                "source": false
               },
               "icon": "lucide-file",
               "title": "2026-05-26-dynamo-amazon-highly-available-key-value-store"
@@ -221,8 +223,9 @@
       "pdf-plus:PDF++: Toggle auto-paste": false
     }
   },
-  "active": "4c7ff3e27e412d54",
+  "active": "19d955c3b35abdcf",
   "lastOpenFiles": [
+    "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
     "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
     "out/www/assets/unix/socket_flow.png",
     "out/www/assets/unix/socket_a_b.png",
@@ -243,7 +246,6 @@
     "out/www/assets/flashcards.js",
     "out/www/assets",
     "out/www/css/main.css",
-    "out/www/css/flashcards.css",
     "out/tmp/82e4b73b87b9f133.md",
     "out/tmp/6f98da4847dcc37d.md",
     "out/tmp/a36da5b3f8fad6a3.md",
@@ -265,7 +267,6 @@
     "out/tmp/b4e849dad2fcb1b4.md",
     "out/tmp/b5ec52f8edc82959.md",
     "out/tmp/d9f7b248bd969752.md",
-    "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
     "out/tmp/3678d05f084e2fce.md",
     "out/tmp/bd9f0bdc9441b503.md",
     "out/tmp/1bf65e4a92484af9.md",

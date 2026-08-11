@@ -1,4 +1,4 @@
-
+****
 ****
 # Dynamo: Amazon's Highly Available Key-value Store
 
@@ -681,25 +681,7 @@
 > 
 > ST1 - hard to snapshot?
 
-## Strategy 1 visualization
 
-Use the controls to add node D and then move its newly assigned ranges. The example illustrates why assigning random tokens makes a single node join affect several disjoint parts of the ring.
-
-<figure>
-  <object
-    type="image/svg+xml"
-    data="/assets/dynamo-strategy-1.svg"
-    width="100%"
-    style="aspect-ratio: 960 / 620"
-  >
-    Interactive visualization of Dynamo partitioning Strategy 1.
-  </object>
-  <figcaption>
-    Strategy 1 couples partition boundaries with token placement. When D joins,
-    existing nodes must scan and transfer several ranges, and affected Merkle
-    trees must be recalculated.
-  </figcaption>
-</figure>
 
 > [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=76,0,77,52&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
 > > The fundamental issue with this strategy is that the schemes for data partitioning and data placement are intertwined
@@ -720,3 +702,133 @@ Use the controls to add node D and then move its newly assigned ranges. The exam
 > > he primary advantages of this strategy are: (i) decoupling of partitioning and partition placement, and (ii) enabling the possibility of changing the placement scheme at runtime
 
 
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=104,0,106,16&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> > Similar to strategy 2, this strategy divides the hash space into Q equally sized partitions
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=108,53,124,9&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> > When a node leaves the system, its tokens are randomly distributed to the remaining nodes such that these properties are preserved
+
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=12&selection=138,0,144,50&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.12]]
+> > comparing these different strategies in a fair manner is hard as different strategies have different configurations to tune their efficiency.
+
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=39,35,48,26&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> > The load balancing efficiency of each strategy was measured for different sizes of membership information that needs to be maintained at each node, where Load balancing efficiency is defined as the ratio of average number of requests served by each node to the maximum number of requests served by the hottest node
+> 
+> strategies were evaluated by T and Q
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=49,61,51,30&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> > ategy 3 achieves the best load balancing efficiency and strategy 2 has the worst load balancing efficienc
+
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=74,57,76,58&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> > he nodes gossip the membership information periodically and as such it is desirable to keep this information as compact as possible.
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=90,0,95,7&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> > Faster bootstrapping/recovery: Since partition ranges are fixed, they can be stored in separate files, 
+> 
+> ST3 faster bosstrapping/recovery
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=98,11,104,65&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> > ii) Ease of archival: Periodical archiving of the dataset is a mandatory requirement for most of Amazon storage services. Archiving the entire dataset stored by Dynamo is simpler in strategy 3 because the partition files can be archived separately
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=105,28,108,5&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> > the tokens are chosen randomly and, archiving the data stored in Dynamo requires retrieving the keys from individual nodes separately and is usually inefficient and slow.
+> 
+> for ST1, have to go through all nodes
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=108,7,124,37&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> > he disadvantage of strategy 3 is that changing the node membership requires coordination in order to preserve the properties required of the assignment
+> 
+> because of Q equally sized partitions
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=139,57,141,55&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> >  The first is when the system is facing failure scenarios such as node failures, data center failures, and network partitions.
+> 
+> infra failure
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=141,56,147,1&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> > The second is when the system is handling a large number of concurrent writers to a single data item and multiple nodes end up coordinating the updates concurrently. 
+> 
+> congestion?
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=195,16,196,60&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> > Semantic reconciliation introduces additional load on services, so it is desirable to minimize the need for it.
+
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=203,0,205,28&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> > Experience shows that the increase in the number of divergent versions is contributed not by failures but due to the increase in number of concurrent writers
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=219,13,259,63&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> >  Write requests on the other hand will be coordinated by a node in the key’s current preference list. This restriction is due to the fact that these preferred nodes have the added responsibility of creating a new version stamp that causally subsumes the version that has been updated by the write request
+> 
+> picking write coordinator
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=13&selection=275,0,300,55&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.13]]
+> > In this scheme client applications use a library to perform request coordination locally. A client periodically picks a random Dynamo node and downloads its current view of Dynamo membership state. 
+> 
+> client side load balance
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=16,1,46,5&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > An important advantage of the client-driven coordination approach is that a load balancer is no longer required to uniformly distribute client load. Fair load distribution is implicitly guaranteed by the near uniform assignment of keys to the storage nodes
+
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=46,8,67,17&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > bviously, the efficiency of this scheme is dependent on how fresh the membership information is at the client. Currently clients poll a random Dynamo node every 10 seconds for membership update
+
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=67,18,70,17&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > . A pull based approach was chosen over a push based one as the former scales better with large number of clients and requires very little state to be maintained at servers regarding clients
+> 
+> pull base scale better cause of less state to maintain
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=71,10,74,26&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> >  stale membership for duration of 10 seconds. In case, if the client detects its membership table is stale (for instance, when some members are unreachable), it will immediately refresh its membership information
+> 
+> refresh when stale is detected?
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=99,14,102,25&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > The latency improvement is because the client driven approach eliminates the overhead of the load balancer and the extra network hop that may be incurred when a request is assigned to a random node
+> 
+> client driven approach performs better then server driven
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=166,0,168,20&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > Each node performs different kinds of background tasks for replica synchronization and data handoff (either due to hinting or adding/removing node
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=172,7,177,9&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > necessary to ensure that background tasks ran only when the regular critical operations are not affected significantly. To this end, the background tasks were integrated with an admission control mechanism
+> 
+> admission control mechanism?
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=213,1,227,10&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > he admission controller constantly monitors the behavior of resource accesses while executing a "foreground" put/get operation.
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=227,0,229,38&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > operation. Monitored aspects include latencies for disk operations, failed database accesses due to lock-contention and transaction timeouts, and request queue wait times
+> 
+> metrics to monitor
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=243,12,245,54&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > Subsequently, it decides on how many time slices will be available to background tasks, thereby using the feedback loop to limit the intrusiveness of the background activitie
+> 
+> timeslice for background task
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=289,13,290,30&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > Dynamo exposes data consistency and reconciliation logic issues to the developers
+
+
+> [!PDF|yellow] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=333,9,334,45&color=yellow|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > Dynamo adopts a full membership model where each node is aware of the data hosted by its peers
+> 
+> membership model ~ service discovery?
+
+> [!PDF|red] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=14&selection=336,9,339,60&color=red|Dynamo: Amazon’s Highly Available Key-value Store, p.14]]
+> > his model works well for a system that contains couple of hundreds of nodes. However, scaling such a design to run with tens of thousands of nodes is not trivial because the overhead in maintaining the routing table increases with the system size
+> 
+> 
