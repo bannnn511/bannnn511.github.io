@@ -2,8 +2,8 @@
 ****
 # Dynamo: Amazon's Highly Available Key-value Store
 
-**Authors:**  
-**Published in:**
+**Authors:** Giuseppe DeCandia, Deniz Hastorun, Madan Jampani, Gunavardhan Kakulapati, Avinash Lakshman, Alex Pilchin, Swaminathan Sivasubramanian, Peter Vosshall and Werner Vogels
+**Published in:** SOSP’07
 
 ---
 
@@ -15,7 +15,8 @@
 - use eventual consistency to increase availability
 - incremental scaling requires dynamic partition
 - optimistic replication of partitions to increase availability but requires conflict resolution
-- data versioning is used to handle eventual consistency and requires 
+- durability with partition using consistent hashing
+- data versioning is used to handle eventual consistency and requires client application to handle conflicts
 
 ---
 
@@ -60,8 +61,12 @@
 
 - Why is it believed this solution will work?
 	- Dynamo uses eventual consistency for data replication to achieves high availability
+	- services that only need primary-key access to a data store
 
 - How does it represent an **improvement**?
+	- provided significant levels of availability (successful responses 99.9995%)
+	- no data loss event has occurred
+	- Amazon's platform is built for high availability and handle different failure modes and inconsistencies which Dynamo exposes to developers
 
 - How is the solution **achieved**?
 	- **partitioning**: consistent hashing -> incremental scalability
@@ -70,7 +75,8 @@
 		- number of virtual nodes of a machine is decided based on capacity
 		- because ranges are scattered, **loads get spread across many different machines** and not dump into the next neighbor in case of failure
 		- one new node joins, accepts equivalent amount of load from other nodes
-	- **replication**: //TODO
+	- **replication**: 
+		- each node is responsible for the region of the ring between it and its Nth predecessor
 	- **data versioning**: 
 		- vector clocks + reconciliation during reads -> version size is decoupled from update rates
 	- **temporary failures**: sloppy quorum and hinted handoff -> high availability + durability guarantee when some replicas not available
@@ -85,6 +91,25 @@
 ### 4. What is the author’s evaluation of the solution?
 
 - What **logic, argument, evidence, artifacts**, or **experiments** are presented in support of the idea?
+- Several services with different configurations
+	- version reconciliation logic
+	- read/write quorum characteristics
+	- can tune N, R, W to achieve their desired level of performance, availability and durability
+	- Business logic specific reconciliation
+		- each data object is replicated across multiple nodes
+		- application performs its own reconciliation logic
+		- Example:
+			- shopping cart service: merging different versions of a customer's shopping cart
+	- Timestamp based reconciliation
+		- simple timestamp reconciliation (last write wins)
+		- Example: service maintains customer's session information
+	- High performance read engine
+		- high read request rate and a small number of updates
+		- R = 1, W = n
+		- partition + replicate data across multiple nodes -> scalability
+		- applicable for persistent cache for data stored in more heavy weight backing stores
+		- Example: product catalog, promotional items,...
+- 
 
 ---
 
@@ -111,6 +136,9 @@
 ### 6. What are the paper’s contributions?
 
 - **Author’s view:**
+	- how different techniques can be combined to provide a single highly-available system
+	- demonstrates that an eventually-consistent storage system can be used in production
+	- insight into the tunning of these techniques to meet the requirements of production system
 
 - **Your view:**
 
@@ -188,6 +216,13 @@
 > > Dynamo is used to manage the state of services that have very high reliability requirements and need tight control over the tradeoffs between availability, consistency, cost-effectiveness and performance.
 > 
 > Solution tradeoff
+
+> [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=1&selection=170,0,171,34&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.1]]
+> > There are many services on Amazon’s platform that only need primary-key access to a data store
+> 
+> query pattern
+
+
 
 > [!PDF|important] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=1&selection=149,50,169,57&color=important|Dynamo: Amazon’s Highly Available Key-value Store, p.1]]
 > > A select set of applications requires a storage technology that is flexible enough to let application designers configure their data store appropriately based on these tradeoffs to achieve high availability and guaranteed performance in the most cost effective manner.
