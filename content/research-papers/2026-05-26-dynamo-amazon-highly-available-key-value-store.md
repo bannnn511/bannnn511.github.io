@@ -12,11 +12,14 @@
 ### 1. What is your take-away message from this paper?
 
 - trade-off of consistency and availability
-- use eventual consistency to increase availability
+- use partition with consistency hashing for incremental scalability
+- use eventual consistency to increase availability for writes
 - incremental scaling requires dynamic partition
 - optimistic replication of partitions to increase availability but requires conflict resolution
-- durability with partition using consistent hashing
 - data versioning is used to handle eventual consistency and requires client application to handle conflicts
+- temporary failures are handle using sloppy quorum and hinted handoff, not strict quorum for availability
+- anti-entropy using merkle tree to reconcile divergent replicas
+- gossip-based membership
 
 ---
 
@@ -25,12 +28,12 @@
 - What is the **people problem** and the **technical problem**?
 	- people problem 
 		- users can access services, can perform read and write operations in case of small or large scale components failure
-		- shopping cart service must allow customers to add and remove items even am
+		- Customers must be able to read and modify their shopping carts even when servers or network components fail. Rejecting cart updates harms customer experience and may lead to lost sales.
 	- technical problem
 		- reliability at massive scale is one of the biggest challenge at Amazon.com
 		- need for storage technologies that are always available
 		- synchronous replication forces tradeoff the availability of data under certain failure scenarios
-		- strong consistency and high availability cannot be achieved simultaneously
+		- during network partition or certain failure scenarios, synchronous coordination for strong consistency makes data unavailable. Dynamo prioritize availability and permits temporary inconsistency
 
 - How is it distilled into a **research question**?
 	- How can a system designed to be highly available across datacenters and failures even at the cost of consistency?
@@ -76,14 +79,22 @@
 		- because ranges are scattered, **loads get spread across many different machines** and not dump into the next neighbor in case of failure
 		- one new node joins, accepts equivalent amount of load from other nodes
 	- **replication**: 
-		- each node is responsible for the region of the ring between it and its Nth predecessor
+		- keys are store locally and replicates to its N-1 successor nodes clockwise
+		- these nodes form the key's **top N preference list**
 	- **data versioning**: 
 		- vector clocks + reconciliation during reads -> version size is decoupled from update rates
-	- **temporary failures**: sloppy quorum and hinted handoff -> high availability + durability guarantee when some replicas not available
+		- **Syntactic Reconciliation**: the system will resolve conflict based on the vector clocks
+		- **Semantic Reconciliation**: client will handle conflict resolution in case the system cannot prove the causality between 2 vector clocks
+	- **sloppy quorum and hinted handoff**: high availability + durability guarantee when some replicas not available
 		- sloppy quorum: not strict quorum for availability (server failures + network partition)
+			- N: number of replicas
+			- W: minimum acks for write
+			- R: minimum responses for read
 		- hinted handoff so that other nodes can pick up the work of downed replicas 
 			- for hinted handoff, if a node is down another node not in replica set will be chosen to maintain the desired availability
-	- **recovering from permanent failure**: anti-entropy using Merkle trees -> synchronizes divergent replicas in the background
+	- **recovering from permanent failure**: anti-entropy using Merkle trees
+		- synchronizes divergent replicas in the background that has missed the handoff
+		- Merkle tree identify different key range so that nodes dont have to send the whole list
 	- **membership + failure detection**: gossip protocol + failure detection -> preserve symmetry + avoid having centralized registry for storing membership + node liveness information
 
 ---
@@ -109,27 +120,28 @@
 		- partition + replicate data across multiple nodes -> scalability
 		- applicable for persistent cache for data stored in more heavy weight backing stores
 		- Example: product catalog, promotional items,...
-- 
+- Dynamo provides the ability to trade-off durability guarantees for performance:
+	- optimization for storage: using an object buffer in its **main memory** 
+	- each write is stored in buffer and get periodically flushed by a writer thread
+	- lowering the 99th percentile latency by a factor of 5 during peak
 
 ---
 
 ### 5. What is your analysis of the identified problem, idea, and evaluation?
 
 - Is this a **good idea**?
+	- Yes for applications that accepting message is more important than failure
+	- good for applications that do not need complex query model and do not need strong consistency, cross object joining and transaction
 
 - What **flaws** do you perceive in the work?
+	- semantic reconciliation is exposed to developers
+	- complex operation: hinted handoff, sloppy quorum, data seeding, rebalance, background job
+	- vector clock truncation
+	- membership scalability
+	- restricted data-model
 
 - What are the most **interesting or controversial ideas**?
-
-- For practical work:
-
-  - Will this **actually work**?
-
-  - Who would **want it**?
-
-  - What would it **take to deliver** it?
-
-  - When might it **become a reality**?
+	- conflict resolution is postponed until read
 
 ---
 
@@ -139,20 +151,6 @@
 	- how different techniques can be combined to provide a single highly-available system
 	- demonstrates that an eventually-consistent storage system can be used in production
 	- insight into the tunning of these techniques to meet the requirements of production system
-
-- **Your view:**
-
-> _(Ideas, methods, software, experimental results, techniques, etc.)_
-
----
-
-### 7. What are future directions for this research?
-
-- **Author’s suggestions:**
-
-- **Your suggestions:**
-
-> _(Driven by shortcomings, critiques, or opportunities.)_
 
 ---
 

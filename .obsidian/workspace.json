@@ -15,9 +15,9 @@
               "type": "pdf",
               "state": {
                 "file": "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
-                "page": 1,
+                "page": 14,
                 "left": -15,
-                "top": 242,
+                "top": 264,
                 "zoom": 0.9718137254901962
               },
               "icon": "lucide-file-text",
@@ -223,10 +223,10 @@
       "pdf-plus:PDF++: Toggle auto-paste": false
     }
   },
-  "active": "19d955c3b35abdcf",
+  "active": "5d1ad9a5b980034a",
   "lastOpenFiles": [
-    "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
     "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
+    "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
     "out/www/assets/unix/socket_flow.png",
     "out/www/assets/unix/socket_a_b.png",
     "out/www/assets/unix/2.png",
