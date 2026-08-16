@@ -19,7 +19,7 @@
 - data versioning is used to handle eventual consistency and requires client application to handle conflicts
 - temporary failures are handle using sloppy quorum and hinted handoff, not strict quorum for availability
 - anti-entropy using merkle tree to reconcile divergent replicas
-- gossip-based membership
+- gossip-based membership with decentralized membership management instead of centralized
 
 ---
 
