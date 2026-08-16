@@ -168,6 +168,9 @@
 	- 
 
 
+---
+## Notes
+
 > [!PDF|] [[Dynamo: Amazon’s Highly Available Key-value Store.pdf#page=1&selection=9,0,10,18|Dynamo: Amazon’s Highly Available Key-value Store, p.1]]
 > > Reliability at massive scale is one of the biggest challenges we face at Amazon.com
 > 
