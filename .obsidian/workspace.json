@@ -36,8 +36,8 @@
               "type": "markdown",
               "state": {
                 "file": "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
-                "mode": "source",
-                "source": false
+                "mode": "preview",
+                "source": true
               },
               "icon": "lucide-file",
               "title": "2026-05-26-dynamo-amazon-highly-available-key-value-store"

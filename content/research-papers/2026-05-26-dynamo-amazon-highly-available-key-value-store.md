@@ -5,6 +5,7 @@
 
 **Authors:** Giuseppe DeCandia, Deniz Hastorun, Madan Jampani, Gunavardhan Kakulapati, Avinash Lakshman, Alex Pilchin, Swaminathan Sivasubramanian, Peter Vosshall and Werner Vogels
 **Published in:** SOSP’07
+**Link**: https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf
 
 ****
 
