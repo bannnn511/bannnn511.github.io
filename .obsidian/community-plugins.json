@@ -1,5 +1,6 @@
 [
   "obsidian-excalidraw-plugin",
   "pdf-plus",
-  "obsidian-git"
+  "obsidian-git",
+  "obsidian-linter"
 ]
