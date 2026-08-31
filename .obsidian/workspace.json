@@ -1,46 +1,24 @@
 {
   "main": {
-    "id": "fe7c7260246b1955",
+    "id": "3604bdd01ccd253d",
     "type": "split",
     "children": [
       {
-        "id": "ff2272302b1bd625",
+        "id": "1f571b45178aa651",
         "type": "tabs",
         "children": [
           {
-            "id": "d5281d4481d68f37",
-            "type": "leaf",
-            "state": {
-              "type": "pdf",
-              "state": {
-                "file": "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
-                "page": 7,
-                "left": -1,
-                "top": 61,
-                "zoom": 1.19
-              },
-              "icon": "lucide-file-text",
-              "title": "Dynamo: Amazon’s Highly Available Key-value Store"
-            }
-          }
-        ]
-      },
-      {
-        "id": "0d421e4e5a9f34be",
-        "type": "tabs",
-        "children": [
-          {
-            "id": "f876d8ac33d8ddb3",
+            "id": "b6a29f44d44e1954",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
-                "mode": "preview",
-                "source": true
+                "file": "Clippings/OpenFlow version 1.3 tutorial.md",
+                "mode": "source",
+                "source": false
               },
               "icon": "lucide-file",
-              "title": "2026-05-26-dynamo-amazon-highly-available-key-value-store"
+              "title": "OpenFlow version 1.3 tutorial"
             }
           }
         ]
@@ -49,15 +27,15 @@
     "direction": "vertical"
   },
   "left": {
-    "id": "46062aca0aeff67c",
+    "id": "ffd22c4452384ea6",
     "type": "split",
     "children": [
       {
-        "id": "14db14b5fd8abeb4",
+        "id": "9611889976ee79c9",
         "type": "tabs",
         "children": [
           {
-            "id": "a0c73dd8a818bd6e",
+            "id": "dcd06ce0a7c0b8f5",
             "type": "leaf",
             "state": {
               "type": "file-explorer",
@@ -72,7 +50,7 @@
             }
           },
           {
-            "id": "65efe3fac0b947b0",
+            "id": "d14da465bb6cf679",
             "type": "leaf",
             "state": {
               "type": "search",
@@ -89,7 +67,7 @@
             }
           },
           {
-            "id": "03571071d11c0d0c",
+            "id": "2e84e0bad82f087e",
             "type": "leaf",
             "state": {
               "type": "bookmarks",
@@ -106,20 +84,20 @@
     "collapsed": true
   },
   "right": {
-    "id": "b98975ad46934b99",
+    "id": "c2fc26684c29c797",
     "type": "split",
     "children": [
       {
-        "id": "71ba35229189bcce",
+        "id": "d59544537b3a8bad",
         "type": "tabs",
         "children": [
           {
-            "id": "59846fd7868a3481",
+            "id": "5fd8fde06f393ff1",
             "type": "leaf",
             "state": {
               "type": "backlink",
               "state": {
-                "file": "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
+                "file": "_notes/unix/3.simple_tcp_server_client 2, other concurrent Server Designs.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -129,25 +107,24 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for 2026-05-26-dynamo-amazon-highly-available-key-value-store"
+              "title": "Backlinks for 3.simple_tcp_server_client 2, other concurrent Server Designs"
             }
           },
           {
-            "id": "fb59fc2a297ab5ac",
+            "id": "6c7bd41da6eb650c",
             "type": "leaf",
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from 2026-05-26-dynamo-amazon-highly-available-key-value-store"
+              "title": "Outgoing links"
             }
           },
           {
-            "id": "c87116f7d76c3b5b",
+            "id": "f7fd5cc84d491dd2",
             "type": "leaf",
             "state": {
               "type": "tag",
@@ -162,7 +139,31 @@
             }
           },
           {
-            "id": "d3bd676263899261",
+            "id": "19f70d85cb88ac2d",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          },
+          {
+            "id": "919e4338aad62863",
+            "type": "leaf",
+            "state": {
+              "type": "git-view",
+              "state": {},
+              "icon": "git-pull-request",
+              "title": "Source Control"
+            }
+          },
+          {
+            "id": "ea9ff1f7a858ecab",
             "type": "leaf",
             "state": {
               "type": "all-properties",
@@ -174,34 +175,9 @@
               "icon": "lucide-archive",
               "title": "All properties"
             }
-          },
-          {
-            "id": "4ec162ca8affce82",
-            "type": "leaf",
-            "state": {
-              "type": "outline",
-              "state": {
-                "file": "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
-                "followCursor": false,
-                "showSearch": false,
-                "searchQuery": ""
-              },
-              "icon": "lucide-list",
-              "title": "Outline of 2026-05-26-dynamo-amazon-highly-available-key-value-store"
-            }
-          },
-          {
-            "id": "eaf868a4bcc93507",
-            "type": "leaf",
-            "state": {
-              "type": "git-view",
-              "state": {},
-              "icon": "git-pull-request",
-              "title": "Source Control"
-            }
           }
         ],
-        "currentTab": 5
+        "currentTab": 4
       }
     ],
     "direction": "horizontal",
@@ -209,31 +185,68 @@
   },
   "left-ribbon": {
     "hiddenItems": {
+      "bases:Create new base": false,
       "switcher:Open quick switcher": false,
       "graph:Open graph view": false,
       "canvas:Create new canvas": false,
       "daily-notes:Open today's daily note": false,
       "templates:Insert template": false,
       "command-palette:Open command palette": false,
-      "bases:Create new base": false,
       "obsidian-excalidraw-plugin:New drawing": false,
+      "obsidian-git:Open Git source control": false,
       "pdf-plus:PDF++: Toggle auto-copy": false,
       "pdf-plus:PDF++: Toggle auto-focus": false,
-      "pdf-plus:PDF++: Toggle auto-paste": false,
-      "obsidian-git:Open Git source control": false
+      "pdf-plus:PDF++: Toggle auto-paste": false
     }
   },
-  "active": "f876d8ac33d8ddb3",
+  "active": "b6a29f44d44e1954",
   "lastOpenFiles": [
-    "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
+    "Clippings/OpenFlow version 1.3 tutorial.md",
     "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
-    "content/links.md",
-    "content/assets/dynamo-strategy-1.svg",
-    "content/research-papers/paper/The Recovery Manager of a Data Management System.pdf",
-    "Clippings/Lessons from scaling PostgreSQL queues to 100K events.md",
-    "Clippings/Every UPDATE Leaves a Ghost MVCC, Bloat, and VACUUM in PostgreSQL.md",
-    "Clippings/What is Apache Kafka and how does it work?.md",
-    "Clippings/Snapshot Isolation vs Serializability.md",
-    "Clippings/The OLED Xbox Ally X20 is so good, Asus will sell it solo.md"
+    "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
+    "out/www/assets/unix/socket_flow.png",
+    "out/www/assets/unix/socket_a_b.png",
+    "out/www/assets/unix/2.png",
+    "out/www/assets/unix/1.png",
+    "out/www/assets/resilient-parsing/main.js",
+    "out/www/assets/resilient-parsing/lparso_bg.wasm",
+    "out/www/assets/resilient-parsing/lparso.js",
+    "out/www/assets/unix",
+    "out/www/assets/toc.js",
+    "out/www/assets/switching-between-user-process.png",
+    "out/www/assets/switch-flow.png",
+    "out/www/assets/squirtle.webp",
+    "out/www/assets/squirtle.jpeg",
+    "out/www/assets/resilient-parsing",
+    "out/www/assets/null-guard-address-space.png",
+    "out/www/assets/multi-level-page-table.png",
+    "out/www/assets/flashcards.js",
+    "out/www/assets",
+    "out/www/css/main.css",
+    "out/tmp/82e4b73b87b9f133.md",
+    "out/tmp/6f98da4847dcc37d.md",
+    "out/tmp/a36da5b3f8fad6a3.md",
+    "out/tmp/4afd800f67fafcd6.md",
+    "out/tmp/585fd83f64dcd3d1.md",
+    "out/tmp/104022867156ab9d.md",
+    "out/tmp/f4841876a0b63fcd.md",
+    "out/tmp/b01a719074682644.md",
+    "out/tmp/1aa85067b15f578d.md",
+    "out/tmp/b7264aa0f09034f6.md",
+    "out/tmp/6917b5fe9199047f.md",
+    "out/tmp/8b958196b121039f.md",
+    "out/tmp/ef9f414faf96fccb.md",
+    "out/tmp/eb18d4b0fb5978c4.md",
+    "out/tmp/462aab47bb64ec13.md",
+    "out/tmp/b73d8946c9cc7fa6.md",
+    "out/tmp/b4b9dbc671b0372d.md",
+    "out/tmp/b393dc90fb1a103a.md",
+    "out/tmp/b4e849dad2fcb1b4.md",
+    "out/tmp/b5ec52f8edc82959.md",
+    "out/tmp/d9f7b248bd969752.md",
+    "out/tmp/3678d05f084e2fce.md",
+    "out/tmp/bd9f0bdc9441b503.md",
+    "out/tmp/1bf65e4a92484af9.md",
+    "Untitled.canvas"
   ]
 }
