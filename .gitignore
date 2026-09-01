@@ -19,6 +19,9 @@ cleanup.sh
 # Deno cache
 .deno/
 
+# Amp orb runtime files
+.amp/portals/*
+
 # Temporary files
 *.tmp
 .env

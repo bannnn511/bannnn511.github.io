@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+step() {
+  printf '\n==> %s\n' "$1"
+}
+
+step "Install system packages"
+packages=()
+command -v pandoc >/dev/null || packages+=(pandoc)
+command -v unzip >/dev/null || packages+=(unzip)
+if ((${#packages[@]})); then
+  sudo apt-get update
+  sudo apt-get install -y "${packages[@]}"
+else
+  echo "pandoc and unzip are already installed"
+fi
+
+step "Install Deno 2"
+if ! command -v deno >/dev/null || [[ "$(deno --version | head -n 1)" != deno\ 2.* ]]; then
+  deno_version="$(curl -fsSL https://dl.deno.land/release-latest.txt)"
+  if [[ "$deno_version" != v2.* ]]; then
+    echo "Expected the latest Deno release to be v2.x, got: $deno_version" >&2
+    exit 1
+  fi
+
+  archive="$(mktemp --suffix=.zip)"
+  trap 'rm -f "$archive"' EXIT
+  curl -fsSL "https://github.com/denoland/deno/releases/download/${deno_version}/deno-x86_64-unknown-linux-gnu.zip" -o "$archive"
+  install_dir="$(mktemp -d)"
+  trap 'rm -f "$archive"; rm -rf "$install_dir"' EXIT
+  unzip -q "$archive" -d "$install_dir"
+  sudo install -m 0755 "$install_dir/deno" /usr/local/bin/deno
+  rm -f "$archive"
+  rm -rf "$install_dir"
+  trap - EXIT
+else
+  deno --version | head -n 1
+fi
+
+step "Verify repository dependencies"
+deno check --lock --cached-only src/main.ts
+pandoc --version | head -n 1
+
+echo "Orb setup complete"
