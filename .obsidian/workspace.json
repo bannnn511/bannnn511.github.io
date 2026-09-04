@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Clippings/OpenFlow version 1.3 tutorial.md",
+                "file": "Clippings/SDN-based RYU application.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "OpenFlow version 1.3 tutorial"
+              "title": "SDN-based RYU application"
             }
           }
         ]
@@ -80,8 +80,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "right": {
     "id": "c2fc26684c29c797",
@@ -201,7 +200,13 @@
   },
   "active": "b6a29f44d44e1954",
   "lastOpenFiles": [
+    "Clippings/Backsliding, by Meghan O’Gieblyn.md",
+    "Clippings/SDN-based RYU application.md",
+    "Clippings/Snapshot Isolation vs Serializability.md",
+    "AGENTS.md",
     "Clippings/OpenFlow version 1.3 tutorial.md",
+    "Untitled.base",
+    "UntitledUntitled.md",
     "content/research-papers/2026-05-26-dynamo-amazon-highly-available-key-value-store.md",
     "content/research-papers/paper/Dynamo: Amazon’s Highly Available Key-value Store.pdf",
     "out/www/assets/unix/socket_flow.png",
@@ -222,7 +227,6 @@
     "out/www/assets/multi-level-page-table.png",
     "out/www/assets/flashcards.js",
     "out/www/assets",
-    "out/www/css/main.css",
     "out/tmp/82e4b73b87b9f133.md",
     "out/tmp/6f98da4847dcc37d.md",
     "out/tmp/a36da5b3f8fad6a3.md",
@@ -242,11 +246,6 @@
     "out/tmp/b4b9dbc671b0372d.md",
     "out/tmp/b393dc90fb1a103a.md",
     "out/tmp/b4e849dad2fcb1b4.md",
-    "out/tmp/b5ec52f8edc82959.md",
-    "out/tmp/d9f7b248bd969752.md",
-    "out/tmp/3678d05f084e2fce.md",
-    "out/tmp/bd9f0bdc9441b503.md",
-    "out/tmp/1bf65e4a92484af9.md",
     "Untitled.canvas"
   ]
 }
