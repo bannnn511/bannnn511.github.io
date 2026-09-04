@@ -4,6 +4,8 @@ import * as md from "./markdown.ts";
 import * as blogroll from "./blogroll.ts";
 import {
   BlogRoll,
+  ClippingList,
+  ClippingPage,
   feed_xml,
   FlashcardList,
   FlashcardPage,
@@ -109,7 +111,11 @@ async function watch(params: { filter: string }) {
     16,
   );
 
-  for await (const event of Deno.watchFs("./content", { recursive: true })) {
+  for await (
+    const event of Deno.watchFs(["./content", "./Clippings"], {
+      recursive: true,
+    })
+  ) {
     if (event.kind == "access") continue;
     await rebuild_debounced();
   }
@@ -173,6 +179,18 @@ async function build(params: {
     await update_file(
       `out/www${paper.path}`,
       html_ugly(Post({ post: paper })),
+    );
+  }
+
+  const clippings = await collect_clippings(ctx, params.filter);
+  await update_file(
+    "out/www/clippings.html",
+    html_ugly(ClippingList({ clippings })),
+  );
+  for (const clipping of clippings) {
+    await update_file(
+      `out/www${clipping.path}`,
+      html_ugly(ClippingPage({ clipping })),
     );
   }
 
@@ -303,6 +321,17 @@ export type Post = {
   summary: string;
 };
 
+export type Clipping = {
+  title: string;
+  source: string;
+  authors: string[];
+  date: Date;
+  path: string;
+  src: string;
+  content: HtmlString;
+  description: string;
+};
+
 export type Flashcard = {
   question: string;
   answer: string;
@@ -407,6 +436,116 @@ async function collect_research_papers(
   papers.sort((l, r) => l.path < r.path ? 1 : -1);
   ctx.collect_ms = performance.now() - start;
   return papers;
+}
+
+async function collect_clippings(
+  ctx: Ctx,
+  filter: string,
+): Promise<Clipping[]> {
+  const start = performance.now();
+  const clippings = [];
+  for await (const file_path of walk("./Clippings/")) {
+    if (!file_path.endsWith(".md")) continue;
+    if (filter !== "" && !file_path.includes(filter)) continue;
+
+    let t = performance.now();
+    const text = await Deno.readTextFile(file_path);
+    ctx.read_ms += performance.now() - t;
+    const { metadata, body } = parse_clipping_frontmatter(text, file_path);
+
+    t = performance.now();
+    const doc = md.parse(body);
+    ctx.parse_ms += performance.now() - t;
+
+    t = performance.now();
+    const render_ctx = {
+      summary: metadata.description || undefined,
+      title: metadata.title,
+    };
+    const html = md.render(doc, render_ctx);
+    ctx.render_ms += performance.now() - t;
+
+    const filename = file_path.slice(file_path.lastIndexOf("/") + 1, -3);
+    const slug = slugify(filename);
+    clippings.push({
+      title: metadata.title,
+      source: metadata.source,
+      authors: metadata.authors,
+      date: parse_date(metadata.published || metadata.created, file_path),
+      path: `/clippings/${slug}.html`,
+      src: `/${file_path.replace(/^\.\//, "")}`,
+      content: html,
+      description: render_ctx.summary ?? metadata.title,
+    });
+  }
+  clippings.sort((l, r) => r.date.getTime() - l.date.getTime());
+  ctx.collect_ms += performance.now() - start;
+  return clippings;
+}
+
+function parse_clipping_frontmatter(text: string, file_path: string) {
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) throw new Error(`Missing frontmatter in ${file_path}`);
+
+  const values: Record<string, string> = {};
+  const authors: string[] = [];
+  let current_key = "";
+  for (const line of match[1].split(/\r?\n/)) {
+    const field = line.match(/^([a-z]+):(?:\s*(.*))?$/);
+    if (field) {
+      current_key = field[1];
+      values[current_key] = parse_yaml_scalar(field[2] ?? "");
+      continue;
+    }
+    const item = line.match(/^\s+-\s+(.*)$/);
+    if (current_key === "author" && item) {
+      authors.push(parse_yaml_scalar(item[1]).replace(/^\[\[|\]\]$/g, ""));
+    }
+  }
+
+  if (!values.title) throw new Error(`Missing title in ${file_path}`);
+  if (!values.source) throw new Error(`Missing source in ${file_path}`);
+  if (!values.published && !values.created) {
+    throw new Error(`Missing published or created date in ${file_path}`);
+  }
+  new URL(values.source);
+
+  return {
+    metadata: {
+      title: values.title,
+      source: values.source,
+      authors,
+      published: values.published,
+      created: values.created,
+      description: values.description,
+    },
+    body: text.slice(match[0].length),
+  };
+}
+
+function parse_yaml_scalar(value: string): string {
+  if (value.startsWith('"') && value.endsWith('"')) return JSON.parse(value);
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replace(/''/g, "'");
+  }
+  return value;
+}
+
+function parse_date(value: string, file_path: string): Date {
+  const date = new Date(`${value}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid date in ${file_path}: ${value}`);
+  }
+  return date;
+}
+
+function slugify(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 async function collect_flashcards(

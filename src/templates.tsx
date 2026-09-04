@@ -3,7 +3,11 @@
 /** @jsxFrag Fragment */
 // deno-lint-ignore-file no-explicit-any
 import { escapeHtml, h, Raw, render, VNode } from "./tsx.ts";
-import { FlashcardSet as FlashcardSetData, Post as PostData } from "./main.ts";
+import {
+  Clipping as ClippingData,
+  FlashcardSet as FlashcardSetData,
+  Post as PostData,
+} from "./main.ts";
 import { FeedEntry as FeedEntryData } from "./blogroll.ts";
 
 const site_url = "https://bannnn511.github.io";
@@ -86,6 +90,7 @@ function Base({ children, src, title, path, description, extra_css }: {
             <a class="title" href="/">AN HA</a>
             <a href="/about.html">About</a>
             <a href="/research-papers.html">Research Papers</a>
+            <a href="/clippings.html">Clippings</a>
             <a href="/blogroll.html">Blogroll</a>
             <a href="/links.html">Links</a>
           </nav>
@@ -162,6 +167,61 @@ export function Post({ post }: { post: PostData }) {
     >
       <article>
         <Raw unsafe={post.content.value} />
+      </article>
+      <script src="/assets/toc.js"></script>
+    </Base>
+  );
+}
+
+export function ClippingList({ clippings }: { clippings: ClippingData[] }) {
+  return (
+    <Base
+      path="/clippings.html"
+      title="Clippings - AN HA"
+      description="Articles clipped and saved by An Ha"
+      src="/src/templates.tsx"
+    >
+      <article>
+        <h1>Clippings</h1>
+        <ul class="post-list">
+          {clippings.map((clipping) => (
+            <li>
+              <span class="meta">
+                <Time date={clipping.date} />
+                {clipping.authors.length > 0 &&
+                  ` · ${clipping.authors.join(", ")}`}
+                {` · ${new URL(clipping.source).host}`}
+              </span>
+              <h2>
+                <a href={clipping.path}>{clipping.title}</a>
+              </h2>
+            </li>
+          ))}
+        </ul>
+      </article>
+    </Base>
+  );
+}
+
+export function ClippingPage({ clipping }: { clipping: ClippingData }) {
+  return (
+    <Base
+      src={clipping.src}
+      title={clipping.title}
+      description={clipping.description}
+      path={clipping.path}
+    >
+      <article>
+        <header>
+          <h1>{clipping.title}</h1>
+          <Time className="meta" date={clipping.date} />
+        </header>
+        <p class="clipping-source meta">
+          {clipping.authors.length > 0 &&
+            `By ${clipping.authors.join(", ")} · `}
+          <a href={clipping.source}>Original source</a>
+        </p>
+        <Raw unsafe={clipping.content.value} />
       </article>
       <script src="/assets/toc.js"></script>
     </Base>
